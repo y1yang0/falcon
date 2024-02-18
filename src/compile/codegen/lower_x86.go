@@ -31,6 +31,8 @@ type LIR struct {
 	Instructions map[int][]*Instruction // blocks of instructions, order of blocks is important
 	Labels       map[int]Label          // labels for each block for continuation point
 	Texts        []Text                 // read-only section literals(string/quads/longs)
+
+	Blocks []*ssa.Block // used by lsra
 }
 
 func (lir *LIR) String() string {
@@ -163,6 +165,7 @@ func NewLIR(fn *ssa.Func) *LIR {
 		Instructions: make(map[int][]*Instruction, len(fn.Blocks)), //order is important
 		Labels:       make(map[int]Label),
 		Texts:        make([]Text, 0),
+		Blocks:       fn.Blocks,
 	}
 }
 
@@ -579,4 +582,8 @@ func Lower(fn *ssa.Func) *LIR {
 
 	VerifyLIR(lir)
 	return lir
+}
+
+func isBranchOp(op LIROp) bool {
+	return op >= LIR_Jmp && op <= LIR_Jgt
 }
