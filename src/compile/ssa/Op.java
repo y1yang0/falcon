@@ -1,0 +1,32 @@
+package compile.ssa;
+
+public enum Op {
+    Add,
+    Sub,
+    Mul,
+    Div,
+    CmpLE,
+    CmpLT,
+    CmpGE,
+    CmpGT,
+    CmpEQ,
+    CmpNE,
+    CInt,
+    CLong,
+    CShort,
+    CFloat,
+    CDouble,
+    CChar,
+    CBool,
+    CByte,
+    CString,
+    CArray,
+    Phi,
+    Copy,
+    Call,
+    Param,
+    Load,
+    Store,
+    LoadIndex,
+    StoreIndex
+}
