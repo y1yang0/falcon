@@ -1,0 +1,19 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+load("@bazel_gazelle//:def.bzl", "gazelle")
+
+# gazelle:prefix falcon
+gazelle(name = "gazelle")
+
+go_library(
+    name = "falcon_lib",
+    srcs = ["main.go"],
+    importpath = "falcon",
+    visibility = ["//visibility:private"],
+    deps = ["//compile"],
+)
+
+go_binary(
+    name = "falcon",
+    embed = [":falcon_lib"],
+    visibility = ["//visibility:public"],
+)

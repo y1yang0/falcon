@@ -1,0 +1,14 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "ast",
+    srcs = [
+        "ast.go",
+        "lexer.go",
+        "parser.go",
+        "type.go",
+    ],
+    importpath = "falcon/ast",
+    visibility = ["//visibility:public"],
+    deps = ["//utils"],
+)

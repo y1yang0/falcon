@@ -1,0 +1,17 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "codegen",
+    srcs = [
+        "asm_x86.go",
+        "lir.go",
+        "lower_x86.go",
+        "arch_x86.go",
+    ],
+    importpath = "falcon/compile/codegen",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compile/ssa",
+        "//utils",
+    ],
+)

@@ -1,0 +1,3 @@
+build --incompatible_strict_action_env
+build --verbose_failures
+common --noenable_bzlmod
