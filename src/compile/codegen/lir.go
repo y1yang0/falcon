@@ -147,7 +147,7 @@ type Text struct {
 // immediate value, e.g. mov $123, %rax => $123
 type Imm struct {
 	Type  *LIRType
-	Value int
+	Value interface{}
 }
 
 // operand offset, e.g. 8(%rbp) => 8

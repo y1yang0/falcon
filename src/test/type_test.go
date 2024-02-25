@@ -146,3 +146,93 @@ func TestInferUnaryExpr(t *testing.T) {
 	a = checkSimpleStmt(root)
 	MustBeType(t, a.Expr, ast.BasicTypes[ast.TypeDouble])
 }
+
+func TestLong(t *testing.T) {
+	source := `
+	func main(){
+		let n1 long
+		let n2 long
+		assert_long(n1, n2)
+		let a long = 55L
+		let b long = 10L
+		let p = a + b
+		let q = a - b
+		let r = a * b
+		let s = a / b
+		let t = a % b
+		let u = a & b
+		let v = a | b
+		let w = a ^ b
+		let x = a << b
+		let y = a >> b
+		let aa = a == b
+		let ab = a != b
+		let ac = a < b
+		let ad = a > b
+		let ae = a <= b
+		let af = a >= b
+		assert_long(p, 65L)
+		assert_long(q, 45L)
+		assert_long(r, 550L)
+		assert_long(s, 5L)
+		assert_long(t, 5L)
+		assert_long(u, 2L)
+		assert_long(v, 63L)
+		assert_long(w, 61L)
+		assert_long(x, 56320L)
+		assert_long(y, 0L)
+		assert_bool(aa, false)
+		assert_bool(ab, true)
+		assert_bool(ac, false)
+		assert_bool(ad, true)
+		assert_bool(ae, false)
+		assert_bool(af, true)
+	}
+	`
+	ExecExpect(source)
+}
+
+func TestShort(t *testing.T) {
+	source := `
+	func main(){
+		let n1 short
+		let n2 short
+		assert_short(n1, n2)
+		let a short = 55S
+		let b short = 10S
+		let p = a + b
+		let q = a - b
+		let r = a * b
+		let s = a / b
+		let t = a % b
+		let u = a & b
+		let v = a | b
+		let w = a ^ b
+		let x = a << b
+		let y = a >> b
+		let aa = a == b
+		let ab = a != b
+		let ac = a < b
+		let ad = a > b
+		let ae = a <= b
+		let af = a >= b
+		assert_short(p, 65S)
+		assert_short(q, 45S)
+		assert_short(r, 550S)
+		assert_short(s, 5S)
+		assert_short(t, 5S)
+		assert_short(u, 2S)
+		assert_short(v, 63S)
+		assert_short(w, 61S)
+		//assert_short(x, 56320S)
+		assert_short(y, 0S)
+		assert_bool(aa, false)
+		assert_bool(ab, true)
+		assert_bool(ac, false)
+		assert_bool(ad, true)
+		assert_bool(ae, false)
+		assert_bool(af, true)
+	}
+	`
+	ExecExpect(source)
+}

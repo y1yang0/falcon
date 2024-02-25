@@ -280,8 +280,6 @@ func (infer *Infer) infer(node AstNode, _ AstNode, depth int) interface{} {
 		finalType := infer.resolveType(e.Opt, leftType, rightType)
 		if finalType != nil {
 			e.SetType(finalType)
-		} else {
-			println("fff")
 		}
 		return rightType
 	case *AssignExpr:
@@ -440,6 +438,17 @@ func (tc *TypeChecker) check(node AstNode, _ AstNode, depth int) interface{} {
 			paramType := funcDecl.Params[i].GetType()
 			if argType.Kind != paramType.Kind {
 				syntaxError(fmt.Sprintf("argument type mismatch: %v", s))
+			}
+		}
+
+	}
+	// Logical expressions must be boolean on both sides
+	if s, yes := node.(*BinaryExpr); yes {
+		if s.Opt.IsLogicalOp() {
+			leftType := s.Left.GetType()
+			rightType := s.Right.GetType()
+			if leftType.Kind != TypeBool || rightType.Kind != TypeBool {
+				syntaxError(fmt.Sprintf("logical expression must be boolean: %v", s))
 			}
 		}
 

@@ -12,59 +12,11 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
+#include "falcon.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
-#include <stdbool.h>
 
 #define DEBUG 0
-
-typedef uintptr_t yptr;
-typedef int8_t ybyte;
-typedef int16_t yshort;
-typedef int32_t yint;
-typedef int64_t ylong;
-typedef float yfloat;
-typedef double ydouble;
-typedef bool ybool;
-
-// -----------------------------------------------------------------------------
-// Standard Library Native Functions
-
-
-void rt_cprint(yint n){
-    printf("%d\n", n);
-}
-
-void rt_cprint_long(ylong n){
-    printf("%ld\n", n);
-}
-
-void rt_cprint_bool(ybool n){
-    printf("%s\n", n==1?"true":"false");
-}
-
-void rt_assert(yint a, yint b){
-    if(a != b){
-        printf("Assertion failed: %d != %d\n", a, b);
-        exit(1);
-    }
-}
-
-void rt_assert_bool(ybool a, ybool b){
-    if(a != b){
-        printf("Assertion failed: %d != %d\n", a, b);
-        exit(1);
-    }
-}
-
-// Test purpose, temporary, will remove later
-void rt_cprint_arr(yint* arr, yint size){
-    for(int i = 0; i < size; i++){
-        printf("%d ", arr[i]);
-    }
-    printf("\n");
-}
 
 // -----------------------------------------------------------------------------
 // Runtime stubs for the compiler

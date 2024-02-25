@@ -61,15 +61,7 @@ const (
 	OpCmpEQ
 	OpCmpNE
 
-	OpCInt
-	OpCLong
-	OpCShort
-	OpCFloat
-	OpCDouble
-	OpChar
-	OpCBool
-	OpCByte
-	OpCString
+	OpConst
 	OpCArray
 
 	OpPhi
@@ -118,24 +110,8 @@ func (x Op) String() string {
 		return "CmpEQ"
 	case OpCmpNE:
 		return "CmpNE"
-	case OpCInt:
-		return "CInt"
-	case OpCLong:
-		return "CLong"
-	case OpCShort:
-		return "CShort"
-	case OpCFloat:
-		return "CFloat"
-	case OpCDouble:
-		return "CDouble"
-	case OpChar:
-		return "Char"
-	case OpCBool:
-		return "CBool"
-	case OpCByte:
-		return "CByte"
-	case OpCString:
-		return "CString"
+	case OpConst:
+		return "Const"
 	case OpCArray:
 		return "CArray"
 	case OpPhi:

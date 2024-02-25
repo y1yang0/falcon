@@ -280,43 +280,39 @@ func (g *GraphBuilder) printVars() {
 }
 
 func (g *GraphBuilder) buildConst(n ast.AstExpr) *Value {
-	switch n.(type) {
-	case *ast.IntExpr:
-		val := g.getControl().NewValue(OpCInt, n.GetType())
-		val.Sym = n.(*ast.IntExpr).Value
-		return val
-	case *ast.LongExpr:
-		utils.Unimplement()
-	case *ast.FloatExpr:
-		utils.Unimplement()
-	case *ast.DoubleExpr:
-		val := g.getControl().NewValue(OpCDouble, n.GetType())
-		val.Sym = n.(*ast.DoubleExpr).Value
-		return val
-	case *ast.BoolExpr:
-		val := g.getControl().NewValue(OpCBool, n.GetType())
-		val.Sym = n.(*ast.BoolExpr).Value
-		val.Type = n.GetType()
-		return val
-	case *ast.StrExpr:
-		val := g.getControl().NewValue(OpCString, n.GetType())
-		val.Sym = n.(*ast.StrExpr).Value
-		return val
-	case *ast.ArrayExpr:
+	if _, ok := n.(*ast.ArrayExpr); ok {
 		val := g.getControl().NewValue(OpCArray, n.GetType())
 		val.Sym = len(n.(*ast.ArrayExpr).Elems)
 		for idx, elem := range n.(*ast.ArrayExpr).Elems {
 			elem := g.build(elem)
-			index := g.getControl().NewValue(OpCInt, ast.BasicTypes[ast.TypeInt])
+			index := g.getControl().NewValue(OpConst, ast.BasicTypes[ast.TypeInt])
 			index.Sym = idx
 			st := g.getControl().NewValue(OpStoreIndex, elem.Type)
 			st.AddArg(val, index, elem)
 		}
 		return val
+	}
+
+	val := g.getControl().NewValue(OpConst, n.GetType())
+	switch n.(type) {
+	case *ast.IntExpr:
+		val.Sym = n.(*ast.IntExpr).Value
+	case *ast.LongExpr:
+		val.Sym = n.(*ast.LongExpr).Value
+	case *ast.ShortExpr:
+		val.Sym = n.(*ast.ShortExpr).Value
+	case *ast.FloatExpr:
+		utils.Unimplement()
+	case *ast.DoubleExpr:
+		val.Sym = n.(*ast.DoubleExpr).Value
+	case *ast.BoolExpr:
+		val.Sym = n.(*ast.BoolExpr).Value
+	case *ast.StrExpr:
+		val.Sym = n.(*ast.StrExpr).Value
 	default:
 		utils.Unimplement()
 	}
-	return nil
+	return val
 }
 
 func (g *GraphBuilder) buildAssignExpr(expr *ast.AssignExpr) *Value {
@@ -751,7 +747,8 @@ func (g *GraphBuilder) build(n ast.AstNode) *Value {
 		return g.buildBinaryExpr(n.(*ast.BinaryExpr))
 	case *ast.VarExpr:
 		return g.lookupVar(n.(*ast.VarExpr).Name, g.getControl())
-	case *ast.IntExpr, *ast.DoubleExpr, *ast.BoolExpr, *ast.StrExpr, *ast.ArrayExpr:
+	case *ast.IntExpr, *ast.LongExpr, *ast.ShortExpr, *ast.DoubleExpr,
+		*ast.BoolExpr, *ast.StrExpr, *ast.ArrayExpr:
 		return g.buildConst(n.(ast.AstExpr))
 	case *ast.AssignExpr:
 		return g.buildAssignExpr(n.(*ast.AssignExpr))

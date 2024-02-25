@@ -1,6 +1,8 @@
 // The Standard Library
 
 func assert(a int,b int)
+func assert_long(a long, b long)
+func assert_short(a short, b short)
 func assert_bool(a bool, b bool)
 
 func cprint(a int)

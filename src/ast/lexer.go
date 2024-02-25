@@ -58,6 +58,12 @@ func (lexer *Lexer) peek() int32 {
 	return int32(b[0])
 }
 
+func (lexer *Lexer) throwSyntaxError(format string, args ...interface{}) {
+	finalFormat := "\033[1;31;40m%s:%d:%d %s\033[0m\n"
+	fmt.Errorf(finalFormat, lexer.fileName, lexer.line, lexer.column, fmt.Sprintf(format, args...))
+	os.Exit(1)
+}
+
 func (lexer *Lexer) NextToken() (TokenKind, string) {
 	const EOF = -1
 	c := lexer.next()
@@ -65,6 +71,7 @@ func (lexer *Lexer) NextToken() (TokenKind, string) {
 	if c == EOF {
 		return TK_EOF, ""
 	}
+	// blank or whitespace
 	if utils.Any(c, ' ', '\n', '\r', '\t') {
 		for utils.Any(c, ' ', '\n', '\r', '\t') {
 			if c == '\n' {
@@ -78,6 +85,7 @@ func (lexer *Lexer) NextToken() (TokenKind, string) {
 		}
 	}
 
+	// comment
 	if c == '/' {
 	anotherComment:
 		if lexer.peek() == '/' {
@@ -98,7 +106,7 @@ func (lexer *Lexer) NextToken() (TokenKind, string) {
 			}
 		}
 	}
-
+	// number
 	if c >= '0' && c <= '9' {
 		lexeme := string(c)
 		isDouble := false
@@ -111,12 +119,36 @@ func (lexer *Lexer) NextToken() (TokenKind, string) {
 			cn = lexer.peek()
 			lexeme += string(c)
 		}
+		// if number is followed by a letter, it's a numeric suffix
+		const LongSuffix = 'L'
+		const FloatSuffix = 'F'
+		const ShortSuffix = 'S'
+		const ByteSuffix = 'B'
+		switch cn {
+		case LongSuffix:
+			// long literal, e.g. 123L
+			lexer.next()
+			return LIT_LONG, lexeme
+		case FloatSuffix:
+			// float literal, e.g. 123.0F
+			lexer.next()
+			return LIT_FLOAT, lexeme
+		case ShortSuffix:
+			// short literal, e.g. 123S
+			lexer.next()
+			return LIT_SHORT, lexeme
+		case ByteSuffix:
+			// byte literal, e.g. 123B
+			lexer.next()
+			return LIT_BYTE, lexeme
+		}
 		if !isDouble {
 			return LIT_INT, lexeme
 		} else {
 			return LIT_DOUBLE, lexeme
 		}
 	}
+	// identifier
 	if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' {
 		lexeme := string(c)
 		cn := lexer.peek()
@@ -132,6 +164,7 @@ func (lexer *Lexer) NextToken() (TokenKind, string) {
 		return TK_IDENT, lexeme
 	}
 
+	// ok, it's a symbol, let's check it then
 	switch c {
 	case '\'':
 		lexeme := ""
@@ -139,7 +172,7 @@ func (lexer *Lexer) NextToken() (TokenKind, string) {
 		if nextChar != '\'' {
 			lexeme += string(nextChar)
 			if lexer.peek() != '\'' {
-				panic("a character literal should surround with single-quote")
+				lexer.throwSyntaxError("a character literal should surround with single-quote")
 			}
 			c = lexer.next()
 		}
@@ -276,7 +309,7 @@ func (lexer *Lexer) NextToken() (TokenKind, string) {
 		}
 		return TK_LT, "<"
 	default:
-		panic("unknown token '" + string(c) + "'")
+		lexer.throwSyntaxError("Bad character: %c", c)
 	}
 	return TK_EOF, ""
 }

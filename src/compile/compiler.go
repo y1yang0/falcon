@@ -31,7 +31,7 @@ import (
 
 const DebugPrintTypedAst = true
 const DebugPrintAst = false
-const DebugPrintLexicalToken = false
+const DebugPrintLexicalToken = true
 const DebugDumpAst = false
 const DebugDumpSSA = false
 
@@ -200,6 +200,8 @@ func CompileTheWorld(wd string, source string) string {
 	filesToCopy := []string{
 		filepath.Join(wd, "../lib", "stdlib.y"),
 		filepath.Join(wd, "../lib", "runtime.c"),
+		filepath.Join(wd, "../lib", "builtin.c"),
+		filepath.Join(wd, "../lib", "falcon.h"),
 		source,
 	}
 	tempDir, err := copyFilesToTempDir("", filesToCopy)
@@ -222,10 +224,11 @@ func CompileTheWorld(wd string, source string) string {
 	compileY(tempDir, stdLib, false /*debug*/, root1)
 	compileY(tempDir, userCode, true /*debug*/, root2)
 	// Compile the runtime written by C
+	compileC(tempDir, filepath.Join(tempDir, "builtin.c"))
 	compileC(tempDir, filepath.Join(tempDir, "runtime.c"))
 	// Link them together
 	libName := getLibNameFromPath(source)
-	linkFiles(tempDir, libName, "stdlib.o", libName+".o", "runtime.o")
+	linkFiles(tempDir, libName, "stdlib.o", libName+".o", "runtime.o", "builtin.o")
 
 	// Copy the binary to the current working directory
 	target := filepath.Join(wd, libName)

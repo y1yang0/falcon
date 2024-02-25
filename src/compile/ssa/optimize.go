@@ -15,6 +15,7 @@
 package ssa
 
 import (
+	"falcon/ast"
 	"falcon/utils"
 	"fmt"
 )
@@ -38,7 +39,6 @@ func (opt *Optimizer) Ideal() {
 	for changed == 1 {
 		changed = 0
 		changed |= opt.simplifyPhi()
-		changed |= opt.valueNumbering()
 		changed |= opt.simplifyCFG()
 		changed |= opt.dce()
 		round++
@@ -214,6 +214,10 @@ func (opt *Optimizer) dce() int {
 // CFG Simplification
 // This pass simplifies the control flow graph. It removes unnecessary jumps and
 // merges intermediate blocks.
+func isConstBool(val *Value) bool {
+	return val.Op == OpConst && val.Type == ast.TBool
+}
+
 func (opt *Optimizer) simplifyCFG() int {
 	fn := opt.Func
 	changed := 0
@@ -221,7 +225,7 @@ func (opt *Optimizer) simplifyCFG() int {
 	for _, block := range fn.Blocks {
 		if block.Kind == BlockIf {
 			ctrl := block.Ctrl
-			if ctrl.Op == OpCBool {
+			if isConstBool(ctrl) {
 				taken := 0
 				if ctrl.Sym.(bool) == false {
 					taken = 1
@@ -308,40 +312,40 @@ func hash(nums ...int) int {
 	}
 }
 
-func (v *Value) hash() int {
-	switch v.Op {
-	case OpCInt:
-		// Sym identifies an constant value
-		return hash(v.Sym.(int))
-	default:
-		// Op + Args + Sym identify an operation
-		// TODO: Implement this
-		return BadHashValue
-	}
-}
+// func (v *Value) hash() int {
+// 	switch v.Op {
+// 	case OpCInt:
+// 		// Sym identifies an constant value
+// 		return hash(v.Sym.(int))
+// 	default:
+// 		// Op + Args + Sym identify an operation
+// 		// TODO: Implement this
+// 		return BadHashValue
+// 	}
+// }
 
-func (opt *Optimizer) valueNumbering() int {
-	changed := 0
-	for _, block := range opt.Func.Blocks {
-		// per-block hash table
-		// FIXME: Kill when we have load and store
-		table := make(map[int]*Value, 0)
-		for _, val := range block.Values {
-			hash := val.hash()
-			if v, exist := table[hash]; exist && hash != BadHashValue {
-				// replace this value with existing value
-				if opt.Debug {
-					fmt.Printf("Same value number %v %v %v\n", hash, v, val)
-				}
-				val.ReplaceUses(v)
-				changed = 1
-			} else {
-				table[hash] = val
-			}
-		}
-	}
-	return changed
-}
+// func (opt *Optimizer) valueNumbering() int {
+// 	changed := 0
+// 	for _, block := range opt.Func.Blocks {
+// 		// per-block hash table
+// 		// FIXME: Kill when we have load and store
+// 		table := make(map[int]*Value, 0)
+// 		for _, val := range block.Values {
+// 			hash := val.hash()
+// 			if v, exist := table[hash]; exist && hash != BadHashValue {
+// 				// replace this value with existing value
+// 				if opt.Debug {
+// 					fmt.Printf("Same value number %v %v %v\n", hash, v, val)
+// 				}
+// 				val.ReplaceUses(v)
+// 				changed = 1
+// 			} else {
+// 				table[hash] = val
+// 			}
+// 		}
+// 	}
+// 	return changed
+// }
 
 func OptimizeHIR(fn *Func, debug bool) {
 	opt := &Optimizer{

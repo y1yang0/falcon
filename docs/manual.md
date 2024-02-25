@@ -19,11 +19,19 @@ Variables are used to store data. They are declared using the let keyword follow
 
 ```falcon
 let x int = 10
-let y = 20
+let x int = 10
+let y long = 10L
+let z float = 10.0F
+let a double = 10.0
+let b char = 'a'
+let c bool = true
+let d byte = 10B
+let e short = 10S
 
 // or omit type and let the compiler infer it
 z = 30
 ```
+The letter followed by the type is a suffix to specify the type of the variable explicitly. For example, 10L is a long, 10.0F is a float, 10.0 is a double, 'a' is a char, true is a bool, and 10B is a byte.
 
 # Functions
 Functions are used to group a set of statements together to perform a specific task. Functions are declared using the func keyword followed by the function name, a list of parameters and the return type of the function.
@@ -42,6 +50,16 @@ if x > 10 {
     print("x is greater than 10")
 } else {
     print("x is less than or equal to 10")
+}
+```
+Or even more fancy:
+```falcon
+let x int = 10
+if x > 10 {
+    print("x is greater than 10")
+} while x < 10 {
+    print("x is less than 10")
+    x -= 1
 }
 ```
 

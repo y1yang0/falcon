@@ -15,9 +15,10 @@
 package ast
 
 import (
+	"falcon/utils"
 	. "falcon/utils"
+	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"strconv"
 )
@@ -28,8 +29,8 @@ type Parser struct {
 	lexer  *Lexer
 }
 
-func syntaxError(fmt string, args ...interface{}) {
-	log.Printf(fmt, args...)
+func syntaxError(format string, args ...interface{}) {
+	fmt.Printf(format, args...)
 	os.Exit(1)
 }
 
@@ -370,8 +371,30 @@ func (p *Parser) parsePrimaryExpr() AstExpr {
 		}
 		p.consume()
 		return elem
-	case LIT_LONG, LIT_SHORT, LIT_BOOL, LIT_FLOAT, LIT_BYTE:
+	case LIT_LONG:
+		elem := &LongExpr{}
+		elem.Type = BasicTypes[TypeLong]
+		var err error
+		elem.Value, err = strconv.ParseInt(p.lexeme, 10, 64)
+		if err != nil {
+			syntaxError("Failed to parse long literal %v", p.lexeme)
+		}
+		p.consume()
+		return elem
+	case LIT_SHORT:
+		elem := &ShortExpr{}
+		elem.Type = BasicTypes[TypeShort]
+		var err error
+		val, err := strconv.ParseInt(p.lexeme, 10, 16)
+		elem.Value = int16(val)
+		if err != nil {
+			syntaxError("Failed to parse short literal %v", p.lexeme)
+		}
+		p.consume()
+		return elem
+	case LIT_FLOAT, LIT_BYTE:
 		// TODO: Complete me!
+		utils.Unimplement()
 	case LIT_DOUBLE:
 		elem := &DoubleExpr{}
 		elem.Type = BasicTypes[TypeDouble]
@@ -428,7 +451,8 @@ func (p *Parser) parseUnaryExpr() AstExpr {
 		p.consume()
 		val.Left = p.parseUnaryExpr()
 		return val
-	} else if Any(p.token, LIT_DOUBLE, LIT_INT, LIT_STR, LIT_CHAR,
+	} else if Any(p.token,
+		LIT_DOUBLE, LIT_INT, LIT_LONG, LIT_SHORT, LIT_STR, LIT_CHAR,
 		TK_IDENT, TK_LPAREN, TK_LBRACKET, KW_TRUE, KW_FALSE,
 		KW_NULL, KW_FUNC) {
 		// 3.14,32,"foo",'c',name,[],true,null,func(){},name.foo()
@@ -675,11 +699,11 @@ func ParseFile(fileName string) *RootDecl {
 func ParseText(text string) *RootDecl {
 	tmpFile, err := ioutil.TempFile(os.TempDir(), "falcon")
 	if err != nil {
-		log.Fatal("Cannot create temporary file", err)
+		fmt.Printf("Cannot create temporary file", err)
 	}
 	_, err = tmpFile.WriteString(text)
 	if err != nil {
-		log.Fatal("Failed to write to temporary file", err)
+		fmt.Printf("Failed to write to temporary file", err)
 	}
 	defer os.Remove(tmpFile.Name())
 	file, err := os.Open(tmpFile.Name())

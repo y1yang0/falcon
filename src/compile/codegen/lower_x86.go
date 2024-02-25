@@ -15,6 +15,7 @@
 package codegen
 
 import (
+	"falcon/ast"
 	"falcon/compile/ssa"
 	"falcon/utils"
 	"fmt"
@@ -228,26 +229,53 @@ func (lir *LIR) lowerCall(val *ssa.Value) {
 
 func (lir *LIR) lowerValue(val *ssa.Value) {
 	switch val.Op {
-	case ssa.OpCInt:
-		r := Imm{LIRTypeDWord, val.Sym.(int)}
-		res := lir.NewVReg(val)
-		lir.NewInstr(val.Block.Id, LIR_Mov, res, r, res).comment(val)
-		lir.SetResult(val, res)
-	case ssa.OpCBool:
-		b := 0
-		if val.Sym.(bool) {
-			b = 1
+	case ssa.OpConst:
+		switch val.Type {
+		case ast.TInt:
+			r := Imm{LIRTypeDWord, val.Sym.(int)}
+			res := lir.NewVReg(val)
+			lir.NewInstr(val.Block.Id, LIR_Mov, res, r, res).comment(val)
+			lir.SetResult(val, res)
+		case ast.TShort:
+			r := Imm{LIRTypeWord, val.Sym.(int16)}
+			res := lir.NewVReg(val)
+			lir.NewInstr(val.Block.Id, LIR_Mov, res, r, res).comment(val)
+			lir.SetResult(val, res)
+		case ast.TLong:
+			r := Imm{LIRTypeQWord, val.Sym.(int64)}
+			res := lir.NewVReg(val)
+			lir.NewInstr(val.Block.Id, LIR_Mov, res, r, res).comment(val)
+			lir.SetResult(val, res)
+		case ast.TBool:
+			b := 0
+			if val.Sym.(bool) {
+				b = 1
+			}
+			r := Imm{LIRTypeDWord, b}
+			res := lir.NewVReg(val)
+			lir.NewInstr(val.Block.Id, LIR_Mov, res, r, res).comment(val)
+			lir.SetResult(val, res)
+		case ast.TDouble:
+			imm := lir.NewText(fmt.Sprintf("%f", val.Sym.(float64)), TextFloat)
+			addr := lir.NewAddr(LIRTypeQWord, RIP, NoReg, imm)
+			res := lir.NewVReg(val)
+			lir.NewInstr(val.Block.Id, LIR_Mov, res, addr, res).comment(val)
+			lir.SetResult(val, res)
+		case ast.TString:
+			// arg0: ptr of string
+			str := val.Sym.(string)
+			ptrArg := ArgReg(0, LIRTypeDWord)
+			lir.NewInstr(val.Block.Id, LIR_Mov, ptrArg, lir.NewText(str, TextString), ptrArg).comment(val)
+			// arg1: len of string
+			lenArg := ArgReg(1, LIRTypeDWord)
+			lir.NewInstr(val.Block.Id, LIR_Mov, lenArg, lir.NewImm(len(str)), lenArg).comment(val)
+			// call runtime stub
+			retReg := ReturnReg(LIRTypeQWord)
+			lir.NewInstr(val.Block.Id, LIR_Call, retReg, Symbol{"runtime_new_string"}).comment(val)
+			lir.SetResult(val, retReg)
+		default:
+			utils.Unimplement()
 		}
-		r := Imm{LIRTypeDWord, b}
-		res := lir.NewVReg(val)
-		lir.NewInstr(val.Block.Id, LIR_Mov, res, r, res).comment(val)
-		lir.SetResult(val, res)
-	case ssa.OpCDouble:
-		imm := lir.NewText(fmt.Sprintf("%f", val.Sym.(float64)), TextFloat)
-		addr := lir.NewAddr(LIRTypeQWord, RIP, NoReg, imm)
-		res := lir.NewVReg(val)
-		lir.NewInstr(val.Block.Id, LIR_Mov, res, addr, res).comment(val)
-		lir.SetResult(val, res)
 	case ssa.OpAdd, ssa.OpSub, ssa.OpMul, ssa.OpDiv, ssa.OpMod,
 		ssa.OpAnd, ssa.OpOr, ssa.OpXor, ssa.OpNot, ssa.OpLShift, ssa.OpRShift:
 		lir.lowerArithmetic(val)
@@ -263,18 +291,6 @@ func (lir *LIR) lowerValue(val *ssa.Value) {
 		lir.SetResult(val, result)
 	case ssa.OpCall:
 		lir.lowerCall(val)
-	case ssa.OpCString:
-		// arg0: ptr of string
-		str := val.Sym.(string)
-		ptrArg := ArgReg(0, LIRTypeDWord)
-		lir.NewInstr(val.Block.Id, LIR_Mov, ptrArg, lir.NewText(str, TextString), ptrArg).comment(val)
-		// arg1: len of string
-		lenArg := ArgReg(1, LIRTypeDWord)
-		lir.NewInstr(val.Block.Id, LIR_Mov, lenArg, lir.NewImm(len(str)), lenArg).comment(val)
-		// call runtime stub
-		retReg := ReturnReg(LIRTypeQWord)
-		lir.NewInstr(val.Block.Id, LIR_Call, retReg, Symbol{"runtime_new_string"}).comment(val)
-		lir.SetResult(val, retReg)
 	case ssa.OpCArray:
 		// arg0: len of array
 		lenArg := ArgReg(0, LIRTypeDWord)

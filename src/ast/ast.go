@@ -372,7 +372,6 @@ const (
 	LIT_DOUBLE                  // <decimal>
 	LIT_FLOAT                   // <float>
 	LIT_CHAR                    // <character>
-	LIT_BOOL                    // <bool>
 	LIT_BYTE                    // <byte>
 	LIT_STR                     // <string>
 
@@ -462,6 +461,14 @@ func (t TokenKind) IsShortCircuitOp() bool {
 	return false
 }
 
+func (t TokenKind) IsLogicalOp() bool {
+	switch t {
+	case TK_LOGAND, TK_LOGOR, TK_LOGNOT:
+		return true
+	}
+	return false
+}
+
 func (t TokenKind) String() string {
 	switch t {
 	case INVALID:
@@ -471,13 +478,15 @@ func (t TokenKind) String() string {
 	case TK_EOF:
 		return "<eof>"
 	case LIT_INT:
-		return "<integer>"
+		return "<lit_integer>"
+	case LIT_LONG:
+		return "<lit_long>"
 	case LIT_STR:
-		return "<string>"
+		return "<lit_string>"
 	case LIT_DOUBLE:
-		return "<decimal>"
+		return "<lit_decimal>"
 	case LIT_CHAR:
-		return "<character>"
+		return "<lit_character>"
 
 	case TK_BITAND:
 		return "&"
