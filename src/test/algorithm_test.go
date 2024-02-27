@@ -215,28 +215,79 @@ func TestBubbleSort(t *testing.T) {
 	ExecExpect(source)
 }
 
-// func TestNarcissisticNumber(t *testing.T) {
-// 	source := `
-// 	func isNarcissisticNumber(n int) bool {
-// 		let sum=0
-// 		let m=n
-// 		while m>0 {
-// 			let digit=m%10
-// 			sum+=digit*digit*digit
-// 			m= m /10
-// 		}
-// 		return sum==n
-// 	}
-// 	func main(){
-// 		assert_bool(isNarcissisticNumber(153),true)
-// 		assert_bool(isNarcissisticNumber(370),true)
-// 		assert_bool(isNarcissisticNumber(371),true)
-// 		assert_bool(isNarcissisticNumber(407),true)
-// 		assert_bool(isNarcissisticNumber(1634),true)
-// 		assert_bool(isNarcissisticNumber(8208),true)
-// 		assert_bool(isNarcissisticNumber(9474),true)
-// 		assert_bool(isNarcissisticNumber(9475),false)
-// 	}
-// 	`
-// 	ExecExpect(source)
-// }
+func TestNarcissisticNumber(t *testing.T) {
+	source := `
+	func isNarcissisticNumber(n int) bool {
+		let sum=0
+		let m=n
+		while m>0 {
+			let digit=m%10
+			sum+=digit*digit*digit
+			m= m /10
+		}
+		return sum==n
+	}
+	func main(){
+		assert_bool(isNarcissisticNumber(153),true)
+		assert_bool(isNarcissisticNumber(370),true)
+		assert_bool(isNarcissisticNumber(371),true)
+		assert_bool(isNarcissisticNumber(407),true)
+	}
+	`
+	ExecExpect(source)
+}
+
+func TestBinarySearch(t *testing.T) {
+	source := `
+	func binarySearch(arr []int, len int, x int) int {
+		let l=0
+		let r=len-1
+		while l<=r {
+			let m=l+(r-l)/2
+			if arr[m]==x {
+				return m
+			}
+			if arr[m]<x {
+				l=m+1
+			} else {
+				r=m-1
+			}
+		}
+		return -1
+	}
+	func main(){
+		let arr = [2,3,4,10,40]
+		let n=5
+		let x=10
+		let result = binarySearch(arr,n,x)
+		assert(result,3)
+		let x1=5
+		let result1 = binarySearch(arr,n,x1)
+		assert(result1,-1)
+	}
+	`
+	ExecExpect(source)
+}
+
+func TestPalindrome(t *testing.T) {
+	source := `
+	func isPalindrome(s string, len int) bool {
+		let l=0
+		let r=len-1
+		while l<r {
+			if s[l]!=s[r] {
+				return false
+			}
+			l+=1
+			r-=1
+		}
+		return true
+	}
+	func main(){
+		assert_bool(isPalindrome("hello",5),false)
+		assert_bool(isPalindrome("helleh",6),true)
+		assert_bool(isPalindrome("helleh",5),false)
+	}
+	`
+	ExecExpect(source)
+}

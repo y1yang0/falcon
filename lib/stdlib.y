@@ -1,36 +1,20 @@
 // The Standard Library
 
+// Note the following functions are mostly temporary
+// and will be rewritten in the future
 func assert(a int,b int)
 func assert_long(a long, b long)
 func assert_short(a short, b short)
 func assert_bool(a bool, b bool)
+func assert_char(a char, b char)
+func assert_string(a string, b string)
 
 func cprint(a int)
 func cprint_long(a long)
 func cprint_bool(a bool)
+func cprint_char(a char)
 func cprint_arr(arr []int, len int)
+func cprint_string(s string)
 
-func sort(arr []int, len int){
-	let n= len
-	for i=0;i<n-1;i+=1{
-		for j=0;j<n-i-1;j+=1{
-			if arr[j]>arr[j+1]{
-				let t = arr[j+1]
-				arr[j+1]=arr[j]
-				arr[j]=t
-			}
-		}
-	}
-}
+func append(a string, c char) string
 
-func min(a int, b int) int{
-	return a < b ? a : b
-}
-
-func max(a int, b int) int{
-	return a > b ? a : b
-}
-
-func clamp(v int, min int, max int)int {
-	return v < min ? min : v > max ? max : v
-}

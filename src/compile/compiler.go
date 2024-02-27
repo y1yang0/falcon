@@ -31,7 +31,7 @@ import (
 
 const DebugPrintTypedAst = true
 const DebugPrintAst = false
-const DebugPrintLexicalToken = true
+const DebugPrintLexicalToken = false
 const DebugDumpAst = false
 const DebugDumpSSA = false
 

@@ -100,7 +100,7 @@ type FloatExpr struct {
 
 type CharExpr struct {
 	Expr
-	Value int32
+	Value int8
 }
 
 type BoolExpr struct {
@@ -137,7 +137,7 @@ type AssignExpr struct {
 	Right AstExpr
 	Opt   TokenKind
 }
-type TernaryExpr struct {
+type ConditionalExpr struct {
 	Expr
 	Cond AstExpr
 	Then AstExpr
@@ -192,8 +192,8 @@ func (v *VarExpr) String() string {
 	return fmt.Sprintf("VarExpr{%v}", v.Name)
 }
 
-func (t *TernaryExpr) String() string {
-	return fmt.Sprintf("TernaryExpr")
+func (t *ConditionalExpr) String() string {
+	return fmt.Sprintf("ConditionalExpr")
 }
 
 func (i *IntExpr) String() string {
@@ -201,11 +201,11 @@ func (i *IntExpr) String() string {
 }
 
 func (l *LongExpr) String() string {
-	return fmt.Sprintf("LongExpr{%v}", l.Value)
+	return fmt.Sprintf("LongExpr{%vL}", l.Value)
 }
 
 func (s *ShortExpr) String() string {
-	return fmt.Sprintf("ShortExpr{%v}", s.Value)
+	return fmt.Sprintf("ShortExpr{%vS}", s.Value)
 }
 
 func (d *DoubleExpr) String() string {
@@ -217,7 +217,7 @@ func (f *FloatExpr) String() string {
 }
 
 func (c *CharExpr) String() string {
-	return fmt.Sprintf("CharExpr{%v}", c.Value)
+	return fmt.Sprintf("CharExpr{'%c'}", c.Value)
 }
 
 func (b *BoolExpr) String() string {
@@ -225,7 +225,7 @@ func (b *BoolExpr) String() string {
 }
 
 func (b *ByteExpr) String() string {
-	return fmt.Sprintf("ByteExpr{%v}", b.Value)
+	return fmt.Sprintf("ByteExpr{%vB}", b.Value)
 }
 
 func (v *VoidExpr) String() string {
@@ -233,7 +233,7 @@ func (v *VoidExpr) String() string {
 }
 
 func (s *StrExpr) String() string {
-	return fmt.Sprintf("StrExpr{%v}", s.Value)
+	return fmt.Sprintf("StrExpr{\"%s\"}", s.Value)
 }
 
 // -----------------------------------------------------------------------------
@@ -275,6 +275,11 @@ type WhileStmt struct {
 	Body AstDecl
 }
 
+type DoWhileStmt struct {
+	Cond AstExpr
+	Body AstDecl
+}
+
 type BreakStmt struct {
 }
 type ContinueStmt struct {
@@ -286,6 +291,10 @@ func (f *ForStmt) String() string {
 
 func (w *WhileStmt) String() string {
 	return fmt.Sprintf("WhileStmt")
+}
+
+func (d *DoWhileStmt) String() string {
+	return fmt.Sprintf("DoWhileStmt")
 }
 
 func (b *BreakStmt) String() string {
@@ -424,6 +433,7 @@ const (
 	KW_ELSE     // else
 	KW_TRUE     // true
 	KW_FALSE    // false
+	KW_DO       // do
 	KW_WHILE    // while
 	KW_FOR      // for
 	KW_NULL     // null
@@ -481,6 +491,10 @@ func (t TokenKind) String() string {
 		return "<lit_integer>"
 	case LIT_LONG:
 		return "<lit_long>"
+	case LIT_SHORT:
+		return "<lit_short>"
+	case LIT_BYTE:
+		return "<lit_byte>"
 	case LIT_STR:
 		return "<lit_string>"
 	case LIT_DOUBLE:
@@ -583,6 +597,8 @@ func (t TokenKind) String() string {
 		return "true"
 	case KW_FALSE:
 		return "false"
+	case KW_DO:
+		return "do"
 	case KW_WHILE:
 		return "while"
 	case KW_FOR:
@@ -632,6 +648,7 @@ var Keywords = map[string]TokenKind{
 	"else":     KW_ELSE,
 	"true":     KW_TRUE,
 	"false":    KW_FALSE,
+	"do":       KW_DO,
 	"while":    KW_WHILE,
 	"for":      KW_FOR,
 	"null":     KW_NULL,
@@ -735,7 +752,7 @@ func (walker *AstWalker) WalkAst(node AstNode, prev AstNode, depth int) {
 	case *BinaryExpr:
 		walker.WalkAst(v.Left, v, depth+1)
 		walker.WalkAst(v.Right, v, depth+1)
-	case *TernaryExpr:
+	case *ConditionalExpr:
 		walker.WalkAst(v.Cond, v, depth+1)
 		walker.WalkAst(v.Then, v, depth+1)
 		walker.WalkAst(v.Else, v, depth+1)

@@ -107,8 +107,8 @@ func checkUnaryExpr(v *ast.SimpleStmt, opt ast.TokenKind) *ast.UnaryExpr {
 	return st
 }
 
-func checkTenaryExpr(v *ast.SimpleStmt) *ast.TernaryExpr {
-	st, ok := v.Expr.(*ast.TernaryExpr)
+func checkConditionalExpr(v *ast.SimpleStmt) *ast.ConditionalExpr {
+	st, ok := v.Expr.(*ast.ConditionalExpr)
 	if !ok {
 		SyntaxError()
 	}
@@ -429,15 +429,15 @@ func TestParser4(t *testing.T) {
 func TestParser5(t *testing.T) {
 	root := ast.ParseText("true?false:true")
 	a := checkSimpleStmt(root)
-	checkTenaryExpr(a)
+	checkConditionalExpr(a)
 
 	root = ast.ParseText("a==b?foo():bar[index()]")
 	a = checkSimpleStmt(root)
-	checkTenaryExpr(a)
+	checkConditionalExpr(a)
 
 	root = ast.ParseText("foo()?():()")
 	a = checkSimpleStmt(root)
-	checkTenaryExpr(a)
+	checkConditionalExpr(a)
 }
 
 func TestParseLoop(t *testing.T) {

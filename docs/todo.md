@@ -1,6 +1,6 @@
 
 # Todo
-This file is used to record the todo list of Falcon. It is ordered by priority.
+This file is used to record the todo list of Falcon.
 
 # Milestone 1: Minimal Falcon
 - [x] Let HIR awares of types(yyang)
@@ -15,16 +15,18 @@ This file is used to record the todo list of Falcon. It is ordered by priority.
 - [ ] Type Conversion
 - [ ] Implement floating point number arithmetic
 - [x] Set default value for variables if using `let p int` without initialization(yyang)
+- [ ] Simplify lower pass and documents rationale of register usages
 - [ ] Implement `do-while` loop
 - [ ] Implement `break labbel` syntax
-- [ ] Support `const` keyword
-- [ ] Implements operators: `!`, `+=`, `-=`, `*=`, `/=`, `%=`, `>>=`, `<<=`, `^=`, `&=`, `|=` (yyang)
+- [x] Implements operators: `!`, `+=`, `-=`, `*=`, `/=`, `%=`, `>>=`, `<<=`, `^=`, `&=`, `|=`
 - [x] Consider consilidating HIR `CInt` `CLong` into `Const`
 - [ ] New lang feature: `package`
-- [ ] New lang feature: Support string type
 - [ ] Implements classic math algorithms, e.g. `sqrt`, `min`, `max`,`clamp`,`ceil`,`floor`,etc in `stdlib.y`
 - [ ] Register allocation, either on HIR or LIR
+- [ ] Implement `++` and `--` operators
 - [x] New logo
+- [ ] Add verification for LIR
+- [ ] Review all type comparison
 - [ ] Official website
 
 ## Milestone 2: Falcon with object oriented programming

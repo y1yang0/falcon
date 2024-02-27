@@ -41,6 +41,7 @@ func (opt *Optimizer) Ideal() {
 		changed |= opt.simplifyPhi()
 		changed |= opt.simplifyCFG()
 		changed |= opt.dce()
+		fmt.Printf("======\n%v", opt.Func)
 		round++
 	}
 	if opt.Debug {
@@ -190,7 +191,8 @@ func (opt *Optimizer) dce() int {
 						if pred == block {
 							for _, val := range succ.Values {
 								if val.Op == OpPhi {
-									val.RemoveUse(val.Args[ipred])
+									def := val.Args[ipred]
+									def.RemoveUseOnce(val)
 									val.Args = append(val.Args[:ipred], val.Args[ipred+1:]...)
 									break
 								}
@@ -241,7 +243,8 @@ func (opt *Optimizer) simplifyCFG() int {
 						if pred == block {
 							for _, val := range notTaken.Values {
 								if val.Op == OpPhi {
-									val.RemoveUse(val.Args[ipred])
+									def := val.Args[ipred]
+									def.RemoveUseOnce(val)
 									val.Args = append(val.Args[:ipred], val.Args[ipred+1:]...)
 									break
 								}

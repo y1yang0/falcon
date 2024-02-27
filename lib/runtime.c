@@ -30,10 +30,56 @@ yint* runtime_new_array(yint size) {
     return arr;
 }
 
-yint* runtime_new_string(yint* str, yint size) {
-    char* s = (char*)malloc(sizeof(yint)* size);
+ystring* runtime_new_string(ychar* str, yint size) {
+    ystring* s = (ystring*)malloc(sizeof(ystring));
+    s->size = size;
+    s->data = (ychar*)malloc(sizeof(ychar) * size);
+    for (int i = 0; i < size; i++) {
+        s->data[i] = str[i];
+    }
+    return s;
 }
 
+ystring* runtime_string_concat(ystring* a, ystring* b){
+    ystring* s = (ystring*)malloc(sizeof(ystring));
+    s->size = a->size + b->size;
+    s->data = (ychar*)malloc(sizeof(ychar) * s->size);
+    for (int i = 0; i < a->size; i++) {
+        s->data[i] = a->data[i];
+    }
+    for (int i = 0; i < b->size; i++) {
+        s->data[i + a->size] = b->data[i];
+    }
+    return s;
+}
+
+ybool runtime_string_eq(ystring* a, ystring* b){
+    return a->size == b->size && memcmp(a->data, b->data, a->size) == 0;
+}
+
+ybool runtime_string_ne(ystring* a, ystring* b){
+    return a->size != b->size || memcmp(a->data, b->data, a->size) != 0;
+}
+
+ybool runtime_string_lt(ystring* a, ystring* b){
+    return memcmp(a->data, b->data, a->size) < 0;
+}
+
+ybool runtime_string_gt(ystring* a, ystring* b){
+    return memcmp(a->data, b->data, a->size) > 0;
+}
+
+ybool runtime_string_le(ystring* a, ystring* b){
+    return memcmp(a->data, b->data, a->size) <= 0;
+}
+
+ybool runtime_string_ge(ystring* a, ystring* b){
+    return memcmp(a->data, b->data, a->size) >= 0;
+}
+
+yint runtime_string_cmp(ystring* a, ystring* b){
+    return memcmp(a->data, b->data, a->size);
+}
 
 // -----------------------------------------------------------------------------
 // Runtime Implementation

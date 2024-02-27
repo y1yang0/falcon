@@ -1,3 +1,17 @@
+// Copyright (c) 2024 The Falcon Contributors
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <http://www.gnu.org/licenses/>.
 package test
 
 import "testing"
@@ -133,6 +147,59 @@ func TestIsSigned(t *testing.T) {
 		assert_bool(isSigned(-6),true)
 		assert_bool(isSigned(7),false)
 		assert_bool(isSigned(-7),true)
+	}
+	`
+	ExecExpect(source)
+}
+
+func TestBit(t *testing.T) {
+	source := `
+	func main(){
+		// 5 = 101
+		// 3 = 011
+		assert(5&3, 1)
+		assert(5|3, 7)
+		assert(5^3, 6)
+
+		assert(0&0, 0)
+		assert(0&1, 0)
+		assert(1&0, 0)
+		assert(1&1, 1)
+		assert(0|0, 0)
+		assert(0|1, 1)
+		assert(1|0, 1)
+		assert(1|1, 1)
+		assert(0^0, 0)
+		assert(0^1, 1)
+		assert(1^0, 1)
+		assert(1^1, 0)
+	}
+	`
+	ExecExpect(source)
+}
+
+func TestIsPowerOf2(t *testing.T) {
+	source := `
+	func isPowerOf2(v int) bool {
+		return (v&(v-1))==0
+	}
+	func main(){
+		assert_bool(isPowerOf2(1),true)
+		assert_bool(isPowerOf2(2),true)
+		assert_bool(isPowerOf2(3),false)
+		assert_bool(isPowerOf2(4),true)
+		assert_bool(isPowerOf2(5),false)
+		assert_bool(isPowerOf2(6),false)
+		assert_bool(isPowerOf2(7),false)
+		assert_bool(isPowerOf2(8),true)
+		assert_bool(isPowerOf2(9),false)
+		assert_bool(isPowerOf2(10),false)
+		assert_bool(isPowerOf2(11),false)
+		assert_bool(isPowerOf2(12),false)
+		assert_bool(isPowerOf2(13),false)
+		assert_bool(isPowerOf2(14),false)
+		assert_bool(isPowerOf2(15),false)
+		assert_bool(isPowerOf2(16),true)
 	}
 	`
 	ExecExpect(source)

@@ -85,7 +85,7 @@ func (g *GraphBuilder) eliminateTrivialPhi(phi *Value) *Value {
 	// v1 in loop header, we would create an operand-less phi
 	//
 	// loop entry:
-	// v1 = CInt #3
+	// v1 = Const #3
 	//
 	// loop header:
 	// v3 = phi
@@ -98,7 +98,7 @@ func (g *GraphBuilder) eliminateTrivialPhi(phi *Value) *Value {
 	// looking up all its predecessors, finally it looks like
 	//
 	// loop entry:
-	// v1 = CInt #3
+	// v1 = Const #3
 	//
 	// loop header:
 	// v3 = phi v1, v3
@@ -158,6 +158,10 @@ func (g *GraphBuilder) lookupVar(name string, block *Block) *Value {
 	}
 }
 
+// In general, all ssa Values obtains its type immediately after its creation,
+// but for phi, they are usually orphan phi at the beginning, only after all
+// its operands are added during sealing up the block, we can determine its type,
+// so we need to propagate type information to its uses if possible
 func propagatePhiType(phi *Value, t *ast.Type) {
 	// t is valid type?
 	if t != nil {
@@ -240,11 +244,13 @@ func (g *GraphBuilder) sealBlock(block *Block) {
 	g.sealed[block] = true
 }
 
-func (g *GraphBuilder) recordBlock(blocks ...*Block) {
-	for _, block := range blocks {
-		g.names[block] = make(map[string]*Value)
-		g.orphanPhi[block] = make(map[string]*Value)
-	}
+func (g *GraphBuilder) newBlock(kind BlockKind) *Block {
+	block := g.fn.NewBlock(kind)
+
+	// Let graph builder awares of newly created block
+	g.names[block] = make(map[string]*Value)
+	g.orphanPhi[block] = make(map[string]*Value)
+	return block
 }
 
 func addEdge(from, to *Block) {
@@ -279,7 +285,15 @@ func (g *GraphBuilder) printVars() {
 	}
 }
 
+func (g *GraphBuilder) newCall(name string, t *ast.Type, args ...*Value) *Value {
+	block := g.getControl()
+	val := block.NewValue(OpCall, t, args...)
+	val.Sym = name
+	return val
+}
+
 func (g *GraphBuilder) buildConst(n ast.AstExpr) *Value {
+	// Array constant
 	if _, ok := n.(*ast.ArrayExpr); ok {
 		val := g.getControl().NewValue(OpCArray, n.GetType())
 		val.Sym = len(n.(*ast.ArrayExpr).Elems)
@@ -292,23 +306,25 @@ func (g *GraphBuilder) buildConst(n ast.AstExpr) *Value {
 		}
 		return val
 	}
-
+	// Scalar constant
 	val := g.getControl().NewValue(OpConst, n.GetType())
-	switch n.(type) {
+	switch n := n.(type) {
 	case *ast.IntExpr:
-		val.Sym = n.(*ast.IntExpr).Value
+		val.Sym = n.Value
 	case *ast.LongExpr:
-		val.Sym = n.(*ast.LongExpr).Value
+		val.Sym = n.Value
 	case *ast.ShortExpr:
-		val.Sym = n.(*ast.ShortExpr).Value
+		val.Sym = n.Value
+	case *ast.CharExpr:
+		val.Sym = n.Value
 	case *ast.FloatExpr:
 		utils.Unimplement()
 	case *ast.DoubleExpr:
-		val.Sym = n.(*ast.DoubleExpr).Value
+		val.Sym = n.Value
 	case *ast.BoolExpr:
-		val.Sym = n.(*ast.BoolExpr).Value
+		val.Sym = n.Value
 	case *ast.StrExpr:
-		val.Sym = n.(*ast.StrExpr).Value
+		val.Sym = n.Value
 	default:
 		utils.Unimplement()
 	}
@@ -316,7 +332,6 @@ func (g *GraphBuilder) buildConst(n ast.AstExpr) *Value {
 }
 
 func (g *GraphBuilder) buildAssignExpr(expr *ast.AssignExpr) *Value {
-
 	if _, yes := expr.Left.(*ast.IndexExpr); yes {
 		left := g.build(expr.Left)
 		right := g.build(expr.Right)
@@ -335,14 +350,25 @@ func (g *GraphBuilder) buildAssignExpr(expr *ast.AssignExpr) *Value {
 		case ast.TK_ASSIGN:
 			g.names[block][expr.Left.(*ast.VarExpr).Name] = right
 			return right
-		case ast.TK_PLUS_AGN:
+		case ast.TK_PLUS_AGN, ast.TK_MINUS_AGN, ast.TK_TIMES_AGN, ast.TK_DIV_AGN,
+			ast.TK_MOD_AGN, ast.TK_LSHIFT_AGN, ast.TK_RSHIFT_AGN, ast.TK_BITAND_AGN,
+			ast.TK_BITOR_AGN, ast.TK_BITXOR_AGN:
+			token2ssaOp := map[ast.TokenKind]Op{
+				ast.TK_PLUS_AGN:   OpAdd,
+				ast.TK_MINUS_AGN:  OpSub,
+				ast.TK_TIMES_AGN:  OpMul,
+				ast.TK_DIV_AGN:    OpDiv,
+				ast.TK_MOD_AGN:    OpMod,
+				ast.TK_LSHIFT_AGN: OpLShift,
+				ast.TK_RSHIFT_AGN: OpRShift,
+				ast.TK_BITAND_AGN: OpAnd,
+				ast.TK_BITOR_AGN:  OpOr,
+				ast.TK_BITXOR_AGN: OpXor,
+			}
+			ssaOp, exist := token2ssaOp[expr.Opt]
+			utils.Assert(exist, "unimplement %v", expr.Opt.String())
 			left := g.lookupVar(expr.Left.(*ast.VarExpr).Name, block)
-			val := block.NewValue(OpAdd, right.Type, left, right)
-			g.names[block][expr.Left.(*ast.VarExpr).Name] = val
-			return val
-		case ast.TK_MINUS_AGN:
-			left := g.lookupVar(expr.Left.(*ast.VarExpr).Name, block)
-			val := block.NewValue(OpSub, right.Type, left, right)
+			val := block.NewValue(ssaOp, left.Type, left, right)
 			g.names[block][expr.Left.(*ast.VarExpr).Name] = val
 			return val
 		default:
@@ -358,11 +384,7 @@ func (g *GraphBuilder) buildFunCallExpr(expr *ast.FuncCallExpr) *Value {
 	for i, arg := range expr.Args {
 		args[i] = g.build(arg)
 	}
-	block := g.getControl()
-	val := block.NewValue(OpCall, expr.Type)
-	val.Sym = expr.Name
-	val.AddArg(args...)
-	return val
+	return g.newCall(expr.Name, expr.Type, args...)
 }
 
 func (g *GraphBuilder) buildIndexExpr(expr *ast.IndexExpr) *Value {
@@ -392,6 +414,10 @@ func (g *GraphBuilder) buildUnaryExpr(node *ast.UnaryExpr) *Value {
 		arg := g.build(node.Left)
 		block := g.getControl()
 		return block.NewValue(OpNot, arg.Type, arg)
+	case ast.TK_LOGNOT:
+		arg := g.build(node.Left)
+		block := g.getControl()
+		return block.NewValue(OpNegate, arg.Type, arg)
 	default:
 		utils.Unimplement()
 	}
@@ -402,12 +428,10 @@ func (g *GraphBuilder) buildLogicalExpr(node *ast.BinaryExpr) *Value {
 	// Logical and/or are short-circuit operators
 	cond1 := g.build(node.Left)
 	cond1Block := g.getControl()
-	cond1Block.Kind = BlockIf
-	cond1.AddUseBlock(cond1Block)
+	cond1Block.ResetTo(BlockIf, cond1)
 
-	cond2Block := g.fn.NewBlock(BlockGoto)
-	phi1Block := g.fn.NewBlock(BlockGoto)
-	g.recordBlock(cond2Block, phi1Block)
+	cond2Block := g.newBlock(BlockGoto)
+	phi1Block := g.newBlock(BlockGoto)
 
 	// The order of CFG edges are important, it indicates where is the true path and vice versa
 	if node.Opt == ast.TK_LOGOR {
@@ -430,7 +454,6 @@ func (g *GraphBuilder) buildLogicalExpr(node *ast.BinaryExpr) *Value {
 		g.setControl(phi1Block)
 		phi1 := phi1Block.NewValue(OpPhi, cond1.Type)
 		phi1.AddArg(cond1, cond2) // cond1 first
-		phi1.AddUseBlock(phi1Block)
 		utils.Assert(cond1.Type == cond2.Type, "type mismatch")
 		return phi1
 	} else {
@@ -453,13 +476,38 @@ func (g *GraphBuilder) buildLogicalExpr(node *ast.BinaryExpr) *Value {
 		g.setControl(phi1Block)
 		phi1 := phi1Block.NewValue(OpPhi, cond2.Type)
 		phi1.AddArg(cond2, cond1) // cond2 first
-		phi1.AddUseBlock(phi1Block)
 		utils.Assert(cond1.Type == cond2.Type, "type mismatch")
 		return phi1
 	}
 }
 
+func (g *GraphBuilder) buildStringBinaryExpr(node *ast.BinaryExpr) *Value {
+	utils.Assert(node.Left.GetType().Kind == ast.TypeString, "sanity check")
+	utils.Assert(node.Right.GetType().Kind == ast.TypeString, "sanity check")
+	token2Call := map[ast.TokenKind]string{
+		ast.TK_PLUS: "runtime_string_concat",
+		ast.TK_EQ:   "runtime_string_eq",
+		ast.TK_NE:   "runtime_string_ne",
+		ast.TK_GE:   "runtime_string_ge",
+		ast.TK_GT:   "runtime_string_gt",
+		ast.TK_LE:   "runtime_string_le",
+		ast.TK_LT:   "runtime_string_lt",
+	}
+	call, exist := token2Call[node.Opt]
+	utils.Assert(exist, "unimplement %v", node.Opt.String())
+	left := g.build(node.Left)
+	right := g.build(node.Right)
+	return g.newCall(call, ast.BasicTypes[ast.TypeString], left, right)
+}
+
 func (g *GraphBuilder) buildBinaryExpr(node *ast.BinaryExpr) *Value {
+	// Operator overloading for strings
+	if node.Left.GetType().Kind == ast.TypeString &&
+		node.Right.GetType().Kind == ast.TypeString {
+		return g.buildStringBinaryExpr(node)
+	}
+
+	// Run-of-the-mill for other types
 	switch node.Opt {
 	case ast.TK_LOGOR, ast.TK_LOGAND:
 		return g.buildLogicalExpr(node)
@@ -515,15 +563,14 @@ func (g *GraphBuilder) buildBinaryExpr(node *ast.BinaryExpr) *Value {
 // equal to loop latch, and loop exit refers to the block that dominated by the
 // entire loop.
 func (g *GraphBuilder) buildLoop(init, cond, body, post ast.AstNode) {
-	loopHeader := g.fn.NewBlock(BlockIf)
+	loopHeader := g.newBlock(BlockIf)
 	loopHeader.Hint = HintLoopHeader
-	loopBody := g.fn.NewBlock(BlockGoto)
-	loopExit := g.fn.NewBlock(BlockGoto)
-	g.recordBlock(loopHeader, loopBody, loopExit)
+	loopBody := g.newBlock(BlockGoto)
+	loopExit := g.newBlock(BlockGoto)
 
-	// Construct the control flow
+	// Reset loop entry
 	loopEntry := g.getControl()
-	loopEntry.Kind = BlockGoto //repair loop entry
+	loopEntry.ResetTo(BlockGoto, nil)
 	addEdge(loopEntry, loopHeader)
 
 	// Build the loop initialization expr
@@ -544,7 +591,6 @@ func (g *GraphBuilder) buildLoop(init, cond, body, post ast.AstNode) {
 	// like below form
 	//
 	//	 loop entry
-	//	     │
 	//	     │   ┌──loop latch
 	//	     ▼   ▼     ▲
 	//	 loop header   │
@@ -554,15 +600,13 @@ func (g *GraphBuilder) buildLoop(init, cond, body, post ast.AstNode) {
 	//	     ▼   ▼     │
 	//	 merge block   │
 	//	     │   │     │
-	//	     │   │     │
 	//	     │   └──►loop body
 	//	     ▼
 	//
 	// The current control block is merge block, and we should wire edges from it
 	// to loop body and loop exit rather than starting from loop header
 	loopHeaderTail := g.getControl()
-	loopHeaderTail.Kind = BlockIf
-	val.AddUseBlock(loopHeaderTail)
+	loopHeaderTail.ResetTo(BlockIf, val)
 	addEdge(loopHeaderTail, loopBody) // order is important , true path first
 	addEdge(loopHeaderTail, loopExit)
 
@@ -592,6 +636,34 @@ func (g *GraphBuilder) buildLoop(init, cond, body, post ast.AstNode) {
 	g.sealBlock(loopHeader)
 }
 
+// ----------------------------------------------------------------------------
+// The Rotated Loop Form
+//
+// The rotated loop is a loop that has been transformed from natural loop to
+// a form that has a single backedge from loop latch to loop header, the loop
+// latch contains the loop conditional test instead of loop header
+//
+//	loop entry
+//	    │
+//	    │
+//	    ▼
+//	loop header◄──┐
+//	    │         │
+//	    │         │
+//	    ▼         │
+//	loop body     │
+//	    │         │
+//	    │         │
+//	    ▼         │
+//	loop latch────┘
+//	    │
+//	    │
+//	    ▼
+//	loop exit
+func (g *GraphBuilder) buildRotatedLoop(init, cond, body, post ast.AstNode) {
+	utils.Unimplement()
+}
+
 func (g *GraphBuilder) buildIf(cond, thenB, elseB ast.AstNode, hasResult bool) *Value {
 	// If then and else blocks are all presented, the CFG looks like a diamond
 	//
@@ -617,17 +689,15 @@ func (g *GraphBuilder) buildIf(cond, thenB, elseB ast.AstNode, hasResult bool) *
 	// Construct the control flow
 	val := g.build(cond)
 	entry := g.getControl()
-	entry.Kind = BlockIf
-	val.AddUseBlock(entry)
+	entry.ResetTo(BlockIf, val)
 
 	// Build the then block nevertheless
 	var ifThen, ifElse *Block
-	ifThen = g.fn.NewBlock(BlockGoto)
+	ifThen = g.newBlock(BlockGoto)
 	// We need to wire the control flow from entry before setting control
 	// in order to avoid sealing the entry block while its predecessor
 	// block is not linked
 	addEdge(entry, ifThen)
-	g.recordBlock(ifThen)
 	g.setControl(ifThen)
 	var thenVal, elseVal *Value
 	thenVal = g.build(thenB)
@@ -635,9 +705,8 @@ func (g *GraphBuilder) buildIf(cond, thenB, elseB ast.AstNode, hasResult bool) *
 
 	// BUild the else block if it is presented
 	if elseB != nil {
-		ifElse = g.fn.NewBlock(BlockGoto)
+		ifElse = g.newBlock(BlockGoto)
 		addEdge(entry, ifElse)
-		g.recordBlock(ifElse)
 		g.setControl(ifElse)
 		elseVal = g.build(elseB)
 		mergeElse = g.getControl()
@@ -647,8 +716,7 @@ func (g *GraphBuilder) buildIf(cond, thenB, elseB ast.AstNode, hasResult bool) *
 	}
 
 	// Merge point
-	merge := g.fn.NewBlock(BlockGoto)
-	g.recordBlock(merge)
+	merge := g.newBlock(BlockGoto)
 	addEdge(mergeThen, merge)
 	addEdge(mergeElse, merge)
 	g.setControl(merge)
@@ -698,67 +766,64 @@ func (g *GraphBuilder) buildReturnStmt(node *ast.ReturnStmt) {
 	if node.Expr == nil {
 		// No return value, just stop control flow then.
 		block := g.getControl()
-		block.Kind = BlockReturn
+		block.ResetTo(BlockReturn, nil)
 		g.stopControl()
 		return
 	}
 	// Evaluate return value and stop control flow then.
 	val := g.build(node.Expr)
 	block := g.getControl()
-	block.Kind = BlockReturn
-	val.AddUseBlock(block)
+	block.ResetTo(BlockReturn, val)
 }
 
 func (g *GraphBuilder) build(n ast.AstNode) *Value {
 	if g.isStopControl() {
 		return nil
 	}
-	switch n.(type) {
+	switch n := n.(type) {
 	case *ast.FuncDecl:
-		g.build(n.(*ast.FuncDecl).Block)
+		g.build(n.Block)
 	case *ast.BlockDecl:
-		for _, stmt := range n.(*ast.BlockDecl).Stmts {
+		for _, stmt := range n.Stmts {
 			g.build(stmt)
 		}
 
 	case *ast.LetStmt:
-		g.buildLetStmt(n.(*ast.LetStmt))
+		g.buildLetStmt(n)
 	case *ast.ForStmt:
-		s := n.(*ast.ForStmt)
-		g.buildLoop(s.Init, s.Cond, s.Body, s.Post)
+		g.buildLoop(n.Init, n.Cond, n.Body, n.Post)
 	case *ast.WhileStmt:
-		s := n.(*ast.WhileStmt)
-		g.buildLoop(nil, s.Cond, s.Body, nil)
+		g.buildLoop(nil, n.Cond, n.Body, nil)
+	case *ast.DoWhileStmt:
+		g.buildRotatedLoop(nil, n.Cond, n.Body, nil)
 	case *ast.SimpleStmt:
-		g.build(n.(*ast.SimpleStmt).Expr)
+		g.build(n.Expr)
 	case *ast.ReturnStmt:
-		g.buildReturnStmt(n.(*ast.ReturnStmt))
+		g.buildReturnStmt(n)
 	case *ast.IfStmt:
-		s := n.(*ast.IfStmt)
-		g.buildIf(s.Cond, s.Then, s.Else, false /*NoResult*/)
+		g.buildIf(n.Cond, n.Then, n.Else, false /*NoResult*/)
 	case *ast.BreakStmt:
-		g.buildBreakStmt(n.(*ast.BreakStmt))
+		g.buildBreakStmt(n)
 	case *ast.ContinueStmt:
-		g.buildContinueStmt(n.(*ast.ContinueStmt))
+		g.buildContinueStmt(n)
 
 	case *ast.UnaryExpr:
-		return g.buildUnaryExpr(n.(*ast.UnaryExpr))
+		return g.buildUnaryExpr(n)
 	case *ast.BinaryExpr:
-		return g.buildBinaryExpr(n.(*ast.BinaryExpr))
+		return g.buildBinaryExpr(n)
 	case *ast.VarExpr:
-		return g.lookupVar(n.(*ast.VarExpr).Name, g.getControl())
+		return g.lookupVar(n.Name, g.getControl())
 	case *ast.IntExpr, *ast.LongExpr, *ast.ShortExpr, *ast.DoubleExpr,
-		*ast.BoolExpr, *ast.StrExpr, *ast.ArrayExpr:
+		*ast.BoolExpr, *ast.CharExpr, *ast.StrExpr, *ast.ArrayExpr:
 		return g.buildConst(n.(ast.AstExpr))
 	case *ast.AssignExpr:
-		return g.buildAssignExpr(n.(*ast.AssignExpr))
+		return g.buildAssignExpr(n)
 	case *ast.FuncCallExpr:
-		return g.buildFunCallExpr(n.(*ast.FuncCallExpr))
+		return g.buildFunCallExpr(n)
 	case *ast.IndexExpr:
-		return g.buildIndexExpr(n.(*ast.IndexExpr))
-	case *ast.TernaryExpr:
-		e := n.(*ast.TernaryExpr)
-		return g.buildIf(e.Cond, e.Then, e.Else, true /*HasResult*/)
+		return g.buildIndexExpr(n)
+	case *ast.ConditionalExpr:
+		return g.buildIf(n.Cond, n.Then, n.Else, true /*HasResult*/)
 	default:
 		utils.Fatal("unimplement %v", n)
 	}
@@ -783,12 +848,10 @@ func CleanHIR(fn *Func) {
 
 func BuildHIR(funcDecl *ast.FuncDecl) *Func {
 	fn := NewFunc(funcDecl.Name)
-	entry := fn.NewBlock(BlockReturn)
+	g := NewGraphBuilder(fn)
+	entry := g.newBlock(BlockReturn)
 	entry.Hint = HintEntry
 	fn.Entry = entry
-
-	g := NewGraphBuilder(fn)
-	g.recordBlock(entry)
 
 	g.setControl(entry)
 	g.buildParams(funcDecl.Params)
@@ -796,7 +859,7 @@ func BuildHIR(funcDecl *ast.FuncDecl) *Func {
 
 	finalBlock := g.getControl()
 	g.sealBlock(finalBlock)
-	finalBlock.Kind = BlockReturn //terminate the program
+	finalBlock.ResetTo(BlockReturn, nil) //terminate the program
 
 	g.verify()
 	// g.printVars()

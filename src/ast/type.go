@@ -223,6 +223,11 @@ func (infer *Infer) resolveType(opt TokenKind, left, right interface{}) *Type {
 		rt = right.(*Type)
 	}
 
+	// string
+	if lt == BasicTypes[TypeString] || rt == BasicTypes[TypeString] {
+		return BasicTypes[TypeString]
+	}
+
 	if lt == BasicTypes[TypeDouble] || rt == BasicTypes[TypeDouble] {
 		return BasicTypes[TypeDouble]
 	}
@@ -234,7 +239,7 @@ func (infer *Infer) resolveType(opt TokenKind, left, right interface{}) *Type {
 
 func (infer *Infer) infer(node AstNode, _ AstNode, depth int) interface{} {
 	// Expression must return inferred type even if it's undetermined
-	switch node.(type) {
+	switch node := node.(type) {
 	case *IntExpr, *LongExpr, *DoubleExpr,
 		*FloatExpr, *CharExpr,
 		*BoolExpr, *ByteExpr,
@@ -244,54 +249,57 @@ func (infer *Infer) infer(node AstNode, _ AstNode, depth int) interface{} {
 		}
 		return node.(AstExpr).GetType()
 	case *IndexExpr:
-		e := node.(*IndexExpr)
-		arrType := infer.getLetType(e.Name)
-		elemType := arrType.ElemType
-		e.SetType(elemType)
-		return elemType
-	case *TernaryExpr:
-		e := node.(*TernaryExpr)
-		thenExpr := e.Then
-		thenType := infer.infer(thenExpr, e, depth+1)
-		e.SetType(thenType.(*Type))
+		varType := infer.getLetType(node.Name)
+		if varType == TString {
+			// indexing string returns char
+			node.SetType(TChar)
+			return TChar
+		} else {
+			// indexing array returns the element type
+			utils.Assert(varType.Kind == TypeArray, "indexing non-array type")
+			elemType := varType.ElemType
+			node.SetType(elemType)
+			return elemType
+		}
+	case *ConditionalExpr:
+		thenExpr := node.Then
+		thenType := infer.infer(thenExpr, node, depth+1)
+		node.SetType(thenType.(*Type))
 		return thenType
 	case *FuncCallExpr:
-		e := node.(*FuncCallExpr)
-		retType := infer.funcScopes[e.Name]
-		e.SetType(retType)
+		retType := infer.funcScopes[node.Name]
+		node.SetType(retType)
 		return retType
 	case *UnaryExpr:
-		e := node.(*UnaryExpr)
-		leftType := infer.infer(e.Left, e, depth+1)
+		leftType := infer.infer(node.Left, node, depth+1)
 		if leftType.(*Type) != nil {
-			e.SetType(leftType.(*Type))
+			node.SetType(leftType.(*Type))
 		}
 		return leftType
 	case *BinaryExpr:
-		e := node.(*BinaryExpr)
 		// cmp op and short-circuit op are special cases, they always produce
 		// bool type.
-		if e.Opt.IsCmpOp() || e.Opt.IsShortCircuitOp() {
-			e.SetType(BasicTypes[TypeBool])
+		if node.Opt.IsCmpOp() || node.Opt.IsShortCircuitOp() {
+			node.SetType(BasicTypes[TypeBool])
 			return BasicTypes[TypeBool]
 		}
-		leftType := infer.infer(e.Left, e, depth+1)
-		rightType := infer.infer(e.Right, e, depth+1)
-		finalType := infer.resolveType(e.Opt, leftType, rightType)
+		leftType := infer.infer(node.Left, node, depth+1)
+		rightType := infer.infer(node.Right, node, depth+1)
+		finalType := infer.resolveType(node.Opt, leftType, rightType)
 		if finalType != nil {
-			e.SetType(finalType)
+			node.SetType(finalType)
+			return finalType
 		}
 		return rightType
 	case *AssignExpr:
-		e := node.(*AssignExpr)
-		leftType := infer.infer(e.Left, e, depth+1)
-		rightType := infer.infer(e.Right, e, depth+1)
-		finalType := infer.resolveType(e.Opt, leftType, rightType)
+		leftType := infer.infer(node.Left, node, depth+1)
+		rightType := infer.infer(node.Right, node, depth+1)
+		finalType := infer.resolveType(node.Opt, leftType, rightType)
 		// rightType := infer.infer(e.Right, e, depth+1)
 		if finalType != nil {
-			e.SetType(finalType)
+			node.SetType(finalType)
 
-			left := e.Left
+			left := node.Left
 			switch left.(type) {
 			case *VarExpr:
 				// let p = 3.14
@@ -308,33 +316,31 @@ func (infer *Infer) infer(node AstNode, _ AstNode, depth int) interface{} {
 	case *VarExpr:
 		// Letiable can be redeclared in different scopes, so we need to track
 		// the type of the variable other than fetching from type of node directly.
-		v := node.(*VarExpr)
-		if vt := v.GetType(); vt != nil {
-			infer.setVarType(v.Name, vt)
+		if vt := node.GetType(); vt != nil {
+			infer.setVarType(node.Name, vt)
 			return vt
 		}
-		vt := infer.getLetType(v.Name)
+		vt := infer.getLetType(node.Name)
 		if vt != nil {
 			// record it
-			infer.setVarType(v.Name, vt)
+			infer.setVarType(node.Name, vt)
 			// also let var expr awares of its type
-			v.SetType(vt)
+			node.SetType(vt)
 		}
 		return vt
 
 	case *LetStmt:
-		s := node.(*LetStmt)
-		name := infer.infer(s.Var, s, depth+1)
+		name := infer.infer(node.Var, node, depth+1)
 		if name.(*Type) != nil {
 			// type is explicitly declared, no need to infer
-			varExpr := s.Var
+			varExpr := node.Var
 			varName := varExpr.Name
 			infer.setVarType(varName, name.(*Type))
 		} else {
 			// infer type from the right side
-			right := infer.infer(s.Init, s, depth+1)
+			right := infer.infer(node.Init, node, depth+1)
 			if right != nil {
-				varExpr := s.Var
+				varExpr := node.Var
 				varName := varExpr.Name
 				infer.setVarType(varName, right.(*Type))
 			}
@@ -385,10 +391,75 @@ func InferTypes(debug bool, roots ...*RootDecl) {
 
 // -----------------------------------------------------------------------------
 // Type Checker
+//
+// It performs type checks on the AST, ensuring that all expressions are typed
+// and obey the rules of the language for certain AST construction component.
 type TypeChecker struct {
 	root    *RootDecl
 	current *FuncDecl
 	funcs   []*FuncDecl
+}
+
+func (tc *TypeChecker) checkBinaryExpr(node *BinaryExpr) {
+	// Logical expressions must be boolean on both sides
+	if node.Opt.IsLogicalOp() {
+		leftType := node.Left.GetType()
+		rightType := node.Right.GetType()
+		if leftType.Kind != TypeBool || rightType.Kind != TypeBool {
+			syntaxError(fmt.Sprintf("logical expression must be boolean: %v", node))
+		}
+	}
+}
+
+func (tc *TypeChecker) checkUnaryExpr(node *UnaryExpr) {
+	// Logical expressions must be boolean
+	if node.Opt.IsLogicalOp() {
+		leftType := node.Left.GetType()
+		if leftType.Kind != TypeBool {
+			syntaxError(fmt.Sprintf("logical expression must be boolean: %v", node))
+		}
+	}
+}
+
+func (tc *TypeChecker) checkFuncCallExpr(node *FuncCallExpr) {
+	// Type of arguments match the function signature
+	var funcDecl *FuncDecl
+	for _, f := range tc.funcs {
+		if f.Name == node.Name {
+			funcDecl = f
+			break
+		} else if strings.HasPrefix(node.Name, "rt_") {
+			sname := strings.TrimPrefix(node.Name, "rt_")
+			if f.Name == sname {
+				funcDecl = f
+				break
+			}
+		}
+	}
+	if funcDecl == nil {
+		syntaxError(fmt.Sprintf("call to %v function not found", node))
+	}
+	if len(node.Args) != len(funcDecl.Params) {
+		syntaxError(fmt.Sprintf("argument count mismatch: %v", node))
+	}
+	for i, arg := range node.Args {
+		argType := arg.GetType()
+		paramType := funcDecl.Params[i].GetType()
+		if argType.Kind != paramType.Kind {
+			syntaxError(fmt.Sprintf("argument type mismatch: %v", node))
+		}
+	}
+}
+
+func (tc *TypeChecker) checkReturnStmt(node *ReturnStmt) {
+	// Return value matches the func return type
+	retVal := node.Expr
+	if retVal != nil {
+		retValType := retVal.GetType()
+		if retValType != tc.current.RetType {
+			syntaxError(fmt.Sprintf("bad return type: %v for %v", node, tc.current.Name))
+		}
+	}
 }
 
 func (tc *TypeChecker) check(node AstNode, _ AstNode, depth int) interface{} {
@@ -402,56 +473,15 @@ func (tc *TypeChecker) check(node AstNode, _ AstNode, depth int) interface{} {
 			syntaxError(fmt.Sprintf("expression is not typed: %v", node))
 		}
 	}
-	// Return value matches the func return type
-	if s, yes := node.(*ReturnStmt); yes {
-		retVal := s.Expr
-		if retVal != nil {
-			retValType := retVal.GetType()
-			if retValType != tc.current.RetType {
-				syntaxError(fmt.Sprintf("bad return type: %v for %v", s, tc.current.Name))
-			}
-		}
-	}
-	// Type of arguments match the function signature
-	if s, yes := node.(*FuncCallExpr); yes {
-		var funcDecl *FuncDecl
-		for _, f := range tc.funcs {
-			if f.Name == s.Name {
-				funcDecl = f
-				break
-			} else if strings.HasPrefix(s.Name, "rt_") {
-				sname := strings.TrimPrefix(s.Name, "rt_")
-				if f.Name == sname {
-					funcDecl = f
-					break
-				}
-			}
-		}
-		if funcDecl == nil {
-			syntaxError(fmt.Sprintf("call to %v function not found", s))
-		}
-		if len(s.Args) != len(funcDecl.Params) {
-			syntaxError(fmt.Sprintf("argument count mismatch: %v", s))
-		}
-		for i, arg := range s.Args {
-			argType := arg.GetType()
-			paramType := funcDecl.Params[i].GetType()
-			if argType.Kind != paramType.Kind {
-				syntaxError(fmt.Sprintf("argument type mismatch: %v", s))
-			}
-		}
-
-	}
-	// Logical expressions must be boolean on both sides
-	if s, yes := node.(*BinaryExpr); yes {
-		if s.Opt.IsLogicalOp() {
-			leftType := s.Left.GetType()
-			rightType := s.Right.GetType()
-			if leftType.Kind != TypeBool || rightType.Kind != TypeBool {
-				syntaxError(fmt.Sprintf("logical expression must be boolean: %v", s))
-			}
-		}
-
+	switch node := node.(type) {
+	case *ReturnStmt:
+		tc.checkReturnStmt(node)
+	case *BinaryExpr:
+		tc.checkBinaryExpr(node)
+	case *UnaryExpr:
+		tc.checkUnaryExpr(node)
+	case *FuncCallExpr:
+		tc.checkFuncCallExpr(node)
 	}
 	return nil
 }

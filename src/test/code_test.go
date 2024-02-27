@@ -273,7 +273,7 @@ func TestSort(t *testing.T) {
 	ExecExpect(source)
 }
 
-func TestTernaryExpr(t *testing.T) {
+func TestConditionalExpr(t *testing.T) {
 	source := `
 	func f(v int) int {
         return v < 100 ? 666 : 555
@@ -950,59 +950,6 @@ func TestExoticIf(t *testing.T) {
 	ExecExpect(source, "3", "4", "5", "6", "7", "8", "9", "10", "11")
 }
 
-func TestBit(t *testing.T) {
-	source := `
-	func main(){
-		// 5 = 101
-		// 3 = 011
-		assert(5&3, 1)
-		assert(5|3, 7)
-		assert(5^3, 6)
-
-		assert(0&0, 0)
-		assert(0&1, 0)
-		assert(1&0, 0)
-		assert(1&1, 1)
-		assert(0|0, 0)
-		assert(0|1, 1)
-		assert(1|0, 1)
-		assert(1|1, 1)
-		assert(0^0, 0)
-		assert(0^1, 1)
-		assert(1^0, 1)
-		assert(1^1, 0)
-	}
-	`
-	ExecExpect(source)
-}
-
-func TestIsPowerOf2(t *testing.T) {
-	source := `
-	func isPowerOf2(v int) bool {
-		return (v&(v-1))==0
-	}
-	func main(){
-		assert_bool(isPowerOf2(1),true)
-		assert_bool(isPowerOf2(2),true)
-		assert_bool(isPowerOf2(3),false)
-		assert_bool(isPowerOf2(4),true)
-		assert_bool(isPowerOf2(5),false)
-		assert_bool(isPowerOf2(6),false)
-		assert_bool(isPowerOf2(7),false)
-		assert_bool(isPowerOf2(8),true)
-		assert_bool(isPowerOf2(9),false)
-		assert_bool(isPowerOf2(10),false)
-		assert_bool(isPowerOf2(11),false)
-		assert_bool(isPowerOf2(12),false)
-		assert_bool(isPowerOf2(13),false)
-		assert_bool(isPowerOf2(14),false)
-		assert_bool(isPowerOf2(15),false)
-		assert_bool(isPowerOf2(16),true)
-	}
-	`
-	ExecExpect(source)
-}
-
 func TestLetWithoutInit(t *testing.T) {
 	source := `
 	func main(){
@@ -1012,3 +959,179 @@ func TestLetWithoutInit(t *testing.T) {
 	`
 	ExecExpect(source)
 }
+
+func TestLogicalNot(t *testing.T) {
+	source := `
+	func main(){
+		assert_bool(!true,false)
+		assert_bool(!false,true)
+	}
+	`
+	ExecExpect(source)
+}
+
+func TestLogicalNot2(t *testing.T) {
+	source := `
+	func main(){
+		let p = true
+		if !p {
+			cprint(0)
+		} else {
+			cprint(1)
+		}
+	}
+	`
+	ExecExpect(source, "1")
+}
+
+func TestWhileWithIf(t *testing.T) {
+	source := `
+	func main(){
+		let i=0
+		while i<10 {
+			if i==5 {
+				break
+			}
+			i+=1
+		}
+		assert(i,5)
+	}
+	`
+	ExecExpect(source)
+}
+
+func TestArithmeticAndAssign(t *testing.T) {
+	source := `
+	func main(){
+		let p = 1
+		p+=1
+		assert(p,2)
+		p-=1
+		assert(p,1)
+		p*=2
+		assert(p,2)
+		p/=2
+		assert(p,1)
+		p%=1
+		assert(p,0)
+	}
+	`
+	ExecExpect(source)
+}
+
+func TestArithmeticAndAssignBit(t *testing.T) {
+	source := `
+	func main(){
+		let p = 1
+		p<<=1
+		assert(p,2)
+		p>>=1
+		assert(p,1)
+	}
+	`
+	ExecExpect(source)
+}
+
+func TestArithmeticAndAssignBit2(t *testing.T) {
+	source := `
+	func main(){
+		let p = 1
+		p&=1
+		assert(p,1)
+		p|=1
+		assert(p,1)
+		p^=1
+		assert(p,0)
+	}
+	`
+	ExecExpect(source)
+}
+
+func TestMod(t *testing.T) {
+	source := `
+	func main(){
+		assert(4%3,1)
+		assert(4%-3,1)
+		assert(-4%3,-1)
+		assert(-4%-3,-1)
+	}
+	`
+	ExecExpect(source)
+}
+
+func TestStringBinaryEx(t *testing.T) {
+	source := `
+	func main(){
+		let a = "aa"
+		let b = "bb"
+		let c = a + b
+		assert_string(c, "aabb")
+		let d = a == b
+		assert_bool(d, false)
+		let e = a == "aa"
+		assert_bool(e, true)
+		let f = a != b
+		assert_bool(f, true)
+		let g = a != "aa"
+		assert_bool(g, false)
+		let h = a < b
+		assert_bool(h, true)
+		let i = a > b
+		assert_bool(i, false)
+		let j = a <= b
+		assert_bool(j, true)
+		let k = a >= b
+		assert_bool(k, false)
+	}
+	`
+	ExecExpect(source)
+}
+
+func TestHelloWorld(t *testing.T) {
+	source := `
+	func main(){
+		let a = "Hello,"
+		let b = " World!"
+		let c = a + b
+		cprint_string(c)
+	}
+	`
+	ExecExpect(source, "Hello, World!")
+}
+
+func TestString(t *testing.T) {
+	source := `
+	func main(){
+		let a = "abc"
+		let x1 = a[0]
+		let x2 = a[1]
+		let x3 = a[2]
+		assert_char(x1, 'a')
+		assert_char(x2, 'b')
+		assert_char(x3, 'c')
+		assert_char('a', a[0])
+		assert_char('b', a[1])
+		assert_char('c', a[2])
+	}
+	`
+	ExecExpect(source)
+}
+
+// func TestSubstring(t *testing.T) {
+// 	source := `
+// 	func substring(s string, l int, r int) string {
+// 		let n=r-l+1
+// 		let res=""
+// 		for i=0;i<n;i+=1{
+// 			res=res +s[l+i]
+// 		}
+// 		return res
+// 	}
+// 	func main(){
+// 		assert_string(substring("hello",0,4),"hello")
+// 		assert_string(substring("hello",0,0),"h")
+// 		assert_string(substring("hello",1,2),"el")
+// 	}
+// 	`
+// 	ExecExpect(source)
+// }

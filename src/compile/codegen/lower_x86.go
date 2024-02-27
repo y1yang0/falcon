@@ -21,6 +21,8 @@ import (
 	"fmt"
 )
 
+// == Code conjured by yyang, Feb, 2024 ==
+
 // ------------------------------------------------------------------------------
 // Lowering Pass
 //
@@ -204,6 +206,13 @@ func (lir *LIR) lowerArithmetic(val *ssa.Value) {
 			lir.NewInstr(val.Block.Id, LIR_Mov, result, remReg, result).comment(val)
 		}
 		lir.SetResult(val, result)
+	case ssa.OpNegate:
+		// @@ Note that negation is different from not, negation is arithmetic
+		// negation, not is bitwise negation
+		left := lir.NewVReg(val.Args[0])
+		result := lir.NewVReg(val)
+		lir.NewInstr(val.Block.Id, LIR_Mov, result, left, result).comment(val)
+		lir.NewInstr(val.Block.Id, LIR_Xor, result, lir.NewImm(1), result).comment(val)
 	default:
 		utils.Unimplement()
 	}
@@ -214,11 +223,15 @@ func (lir *LIR) lowerCall(val *ssa.Value) {
 
 	for i, arg := range val.Args {
 		r := lir.NewVReg(arg)
-		lir.NewInstr(val.Block.Id, LIR_Mov,
-			ArgReg(i, GetLIRType(arg.Type)), r, ArgReg(i, GetLIRType(arg.Type))).comment(val)
+		lir.NewInstr(val.Block.Id,
+			LIR_Mov,
+			ArgReg(i, GetLIRType(arg.Type)),
+			r,
+			ArgReg(i, GetLIRType(arg.Type)),
+		).comment(val)
 	}
 	retReg := ReturnReg(GetLIRType(val.Type))
-	lir.NewInstr(val.Block.Id, LIR_Call, NoReg, Symbol{val.Sym.(string)}).comment(val)
+	lir.NewInstr(val.Block.Id, LIR_Call, retReg, Symbol{val.Sym.(string)}).comment(val)
 	res := lir.NewVReg(val)
 	if retReg != NoReg {
 		// mov ret_val, res
@@ -227,59 +240,117 @@ func (lir *LIR) lowerCall(val *ssa.Value) {
 	lir.SetResult(val, res)
 }
 
+func (lir *LIR) lowerConst(val *ssa.Value) {
+	utils.Assert(val.Op == ssa.OpConst, "sanity check")
+	switch val.Type {
+	case ast.TInt:
+		r := Imm{LIRTypeDWord, val.Sym.(int)}
+		res := lir.NewVReg(val)
+		lir.NewInstr(val.Block.Id, LIR_Mov, res, r, res).comment(val)
+		lir.SetResult(val, res)
+	case ast.TShort:
+		r := Imm{LIRTypeWord, val.Sym.(int16)}
+		res := lir.NewVReg(val)
+		lir.NewInstr(val.Block.Id, LIR_Mov, res, r, res).comment(val)
+		lir.SetResult(val, res)
+	case ast.TLong:
+		r := Imm{LIRTypeQWord, val.Sym.(int64)}
+		res := lir.NewVReg(val)
+		lir.NewInstr(val.Block.Id, LIR_Mov, res, r, res).comment(val)
+		lir.SetResult(val, res)
+	case ast.TBool:
+		b := 0
+		if val.Sym.(bool) {
+			b = 1
+		}
+		r := Imm{LIRTypeDWord, b}
+		res := lir.NewVReg(val)
+		lir.NewInstr(val.Block.Id, LIR_Mov, res, r, res).comment(val)
+		lir.SetResult(val, res)
+	case ast.TChar:
+		r := Imm{LIRTypeByte, val.Sym.(int8)}
+		res := lir.NewVReg(val)
+		lir.NewInstr(val.Block.Id, LIR_Mov, res, r, res).comment(val)
+		lir.SetResult(val, res)
+	case ast.TDouble:
+		imm := lir.NewText(fmt.Sprintf("%f", val.Sym.(float64)), TextFloat)
+		addr := lir.NewAddr(LIRTypeQWord, RIP, NoReg, imm)
+		res := lir.NewVReg(val)
+		lir.NewInstr(val.Block.Id, LIR_Mov, res, addr, res).comment(val)
+		lir.SetResult(val, res)
+	case ast.TString:
+		// arg0: ptr of string
+		str := val.Sym.(string)
+		ptrArg := ArgReg(0, LIRTypeDWord)
+		lir.NewInstr(val.Block.Id, LIR_Mov, ptrArg, lir.NewText(str, TextString), ptrArg).comment(val)
+		// arg1: len of string
+		lenArg := ArgReg(1, LIRTypeDWord)
+		lir.NewInstr(val.Block.Id, LIR_Mov, lenArg, lir.NewImm(len(str)), lenArg).comment(val)
+		// call runtime stub
+		retReg := ReturnReg(LIRTypeQWord)
+		lir.NewInstr(val.Block.Id, LIR_Call, retReg, Symbol{"runtime_new_string"}).comment(val)
+		// save result string
+		res := lir.NewVReg(val)
+		lir.NewInstr(val.Block.Id, LIR_Mov, res, retReg, res).comment(val)
+		lir.SetResult(val, res)
+	default:
+		utils.Unimplement()
+	}
+}
+
+func (lir *LIR) lowerIndexed(val *ssa.Value) {
+	utils.Assert(val.Op == ssa.OpLoadIndex || val.Op == ssa.OpStoreIndex, "sanity check")
+	argVar := val.Args[0]
+	argIndex := val.Args[1]
+	switch val.Op {
+	case ssa.OpStoreIndex:
+		if argVar.Type == ast.TString {
+			utils.Fatal("string is immutable")
+		} else {
+			argValue := val.Args[2]
+			base := lir.NewVReg(argVar)
+			index := lir.NewVReg(argIndex)
+			elem := lir.NewVReg(argValue)
+			addr := lir.NewAddr(elem.Type, base, index, lir.NewOffset(0))
+			lir.NewInstr(val.Block.Id, LIR_Mov, addr, elem, addr).comment(val)
+		}
+	case ssa.OpLoadIndex:
+		if argVar.Type == ast.TString {
+			// load char from string
+			// deference string to get data field
+			base := lir.NewVReg(argVar)
+			dataAddr := lir.NewAddr(LIRTypeQWord, base, NoReg, lir.NewOffset(0))
+			freeRegs := CallerSaveRegs(LIRTypeQWord)
+			dataRes := freeRegs[0]
+			lir.NewInstr(val.Block.Id, LIR_Mov, dataRes, dataAddr, dataRes).comment("load string.data")
+			// load element from dataAddr
+			result := lir.NewVReg(val)
+			index := lir.NewVReg(argIndex)
+			charAddr := lir.NewAddr(LIRTypeByte, dataRes, index, lir.NewOffset(0))
+			lir.NewInstr(val.Block.Id, LIR_Mov, result, charAddr, result).comment("load str.data[index]")
+		} else {
+			// load element from array
+			base := lir.NewVReg(argVar)
+			index := lir.NewVReg(argIndex)
+			addr := lir.NewAddr(GetLIRType(val.Type), base, index, lir.NewOffset(0))
+			result := lir.NewVReg(val)
+			lir.NewInstr(val.Block.Id, LIR_Mov, result, addr, result).comment(val)
+		}
+	default:
+		utils.ShouldNotReachHere()
+	}
+}
+
 func (lir *LIR) lowerValue(val *ssa.Value) {
 	switch val.Op {
 	case ssa.OpConst:
-		switch val.Type {
-		case ast.TInt:
-			r := Imm{LIRTypeDWord, val.Sym.(int)}
-			res := lir.NewVReg(val)
-			lir.NewInstr(val.Block.Id, LIR_Mov, res, r, res).comment(val)
-			lir.SetResult(val, res)
-		case ast.TShort:
-			r := Imm{LIRTypeWord, val.Sym.(int16)}
-			res := lir.NewVReg(val)
-			lir.NewInstr(val.Block.Id, LIR_Mov, res, r, res).comment(val)
-			lir.SetResult(val, res)
-		case ast.TLong:
-			r := Imm{LIRTypeQWord, val.Sym.(int64)}
-			res := lir.NewVReg(val)
-			lir.NewInstr(val.Block.Id, LIR_Mov, res, r, res).comment(val)
-			lir.SetResult(val, res)
-		case ast.TBool:
-			b := 0
-			if val.Sym.(bool) {
-				b = 1
-			}
-			r := Imm{LIRTypeDWord, b}
-			res := lir.NewVReg(val)
-			lir.NewInstr(val.Block.Id, LIR_Mov, res, r, res).comment(val)
-			lir.SetResult(val, res)
-		case ast.TDouble:
-			imm := lir.NewText(fmt.Sprintf("%f", val.Sym.(float64)), TextFloat)
-			addr := lir.NewAddr(LIRTypeQWord, RIP, NoReg, imm)
-			res := lir.NewVReg(val)
-			lir.NewInstr(val.Block.Id, LIR_Mov, res, addr, res).comment(val)
-			lir.SetResult(val, res)
-		case ast.TString:
-			// arg0: ptr of string
-			str := val.Sym.(string)
-			ptrArg := ArgReg(0, LIRTypeDWord)
-			lir.NewInstr(val.Block.Id, LIR_Mov, ptrArg, lir.NewText(str, TextString), ptrArg).comment(val)
-			// arg1: len of string
-			lenArg := ArgReg(1, LIRTypeDWord)
-			lir.NewInstr(val.Block.Id, LIR_Mov, lenArg, lir.NewImm(len(str)), lenArg).comment(val)
-			// call runtime stub
-			retReg := ReturnReg(LIRTypeQWord)
-			lir.NewInstr(val.Block.Id, LIR_Call, retReg, Symbol{"runtime_new_string"}).comment(val)
-			lir.SetResult(val, retReg)
-		default:
-			utils.Unimplement()
-		}
+		lir.lowerConst(val)
 	case ssa.OpAdd, ssa.OpSub, ssa.OpMul, ssa.OpDiv, ssa.OpMod,
-		ssa.OpAnd, ssa.OpOr, ssa.OpXor, ssa.OpNot, ssa.OpLShift, ssa.OpRShift:
+		ssa.OpAnd, ssa.OpOr, ssa.OpXor, ssa.OpNot, ssa.OpLShift, ssa.OpRShift,
+		ssa.OpNegate:
 		lir.lowerArithmetic(val)
 	case ssa.OpPhi:
+		// Phi should be already resolved
 		utils.ShouldNotReachHere()
 	case ssa.OpCmpLT, ssa.OpCmpLE, ssa.OpCmpGT, ssa.OpCmpGE, ssa.OpCmpEQ, ssa.OpCmpNE:
 		lir.lowerCompare(val)
@@ -302,20 +373,8 @@ func (lir *LIR) lowerValue(val *ssa.Value) {
 		res := lir.NewVReg(val)
 		lir.NewInstr(val.Block.Id, LIR_Mov, res, retReg, res).comment(val)
 		lir.SetResult(val, res)
-	case ssa.OpStoreIndex:
-		base := lir.NewVReg(val.Args[0])
-		index := lir.NewVReg(val.Args[1])
-		elem := lir.NewVReg(val.Args[2])
-		addr := lir.NewAddr(elem.Type,
-			base, index, lir.NewOffset(0))
-		lir.NewInstr(val.Block.Id, LIR_Mov, addr, elem, addr).comment(val)
-	case ssa.OpLoadIndex:
-		base := lir.NewVReg(val.Args[0])
-		index := lir.NewVReg(val.Args[1])
-		addr := lir.NewAddr(GetLIRType(val.Type),
-			base, index, lir.NewOffset(0))
-		result := lir.NewVReg(val)
-		lir.NewInstr(val.Block.Id, LIR_Mov, result, addr, result).comment(val)
+	case ssa.OpStoreIndex, ssa.OpLoadIndex:
+		lir.lowerIndexed(val)
 	default:
 		utils.Unimplement()
 	}

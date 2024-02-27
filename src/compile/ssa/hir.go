@@ -53,6 +53,7 @@ const (
 	OpNot
 	OpLShift
 	OpRShift
+	OpNegate
 
 	OpCmpLE
 	OpCmpLT
@@ -98,6 +99,8 @@ func (x Op) String() string {
 		return "LShift"
 	case OpRShift:
 		return "RShift"
+	case OpNegate:
+		return "Negate"
 	case OpCmpLE:
 		return "CmpLE"
 	case OpCmpLT:
@@ -176,6 +179,15 @@ func (v *Value) RemoveUse(value *Value) {
 	for i := len(v.Uses) - 1; i >= 0; i-- {
 		if v.Uses[i] == value {
 			v.Uses = append(v.Uses[:i], v.Uses[i+1:]...)
+		}
+	}
+}
+
+func (v *Value) RemoveUseOnce(value *Value) {
+	for i := len(v.Uses) - 1; i >= 0; i-- {
+		if v.Uses[i] == value {
+			v.Uses = append(v.Uses[:i], v.Uses[i+1:]...)
+			return
 		}
 	}
 }
@@ -354,6 +366,23 @@ func (block *Block) RemovePred(pred *Block) bool {
 	return false
 }
 
+func (block *Block) ResetTo(kind BlockKind, ctrl *Value) {
+	// TODO: Verify old block kind
+	block.Kind = kind
+	switch kind {
+	case BlockIf:
+		utils.Assert(ctrl != nil, "BlockIf should have control value")
+		ctrl.AddUseBlock(block)
+	case BlockReturn:
+		// ctrl value for BlockReturn is optional
+		if ctrl != nil {
+			ctrl.AddUseBlock(block)
+		}
+	case BlockGoto:
+		utils.Assert(ctrl == nil, "BlockGoto should not have control value")
+	}
+}
+
 // -----------------------------------------------------------------------------
 // HIR Function
 // Abstraction of a function in SSA form.
@@ -402,10 +431,10 @@ func (fn *Func) RemoveBlock(block *Block) {
 	}
 }
 
-func (f *Func) String() string {
+func (fn *Func) String() string {
 	var s string
-	s += fmt.Sprintf("func %s:\n", f.Name)
-	for _, block := range f.Blocks {
+	s += fmt.Sprintf("func %s:\n", fn.Name)
+	for _, block := range fn.Blocks {
 		s += fmt.Sprintf("%s\n", block.String())
 	}
 	return s
@@ -506,17 +535,26 @@ func VerifyHIR(fn *Func) {
 				fmt.Printf("%v", fn)
 				utils.Fatal("sanity check")
 			}
+			if block.Ctrl != nil {
+				fmt.Printf("%v", fn)
+				utils.Fatal("BlockGoto should not have control value")
+			}
 		case BlockIf:
 			if len(block.Succs) != 2 {
 				fmt.Printf("%v", fn)
 				utils.Fatal("sanity check")
 			}
 			utils.Assert(len(block.Succs) == 2, "sanity check")
+			if block.Ctrl == nil {
+				fmt.Printf("%v", fn)
+				utils.Fatal("BlockIf should have control value")
+			}
 		case BlockReturn:
 			if len(block.Succs) != 0 {
 				fmt.Printf("%v", fn)
 				utils.Fatal("sanity check")
 			}
+			// ctrl value for BlockReturn is optional
 		default:
 			utils.Unimplement()
 		}
@@ -532,23 +570,23 @@ func VerifyHIR(fn *Func) {
 			}
 		}
 	}
-	// for val, uses := range defUses {
-	// 	if len(val.Uses) != len(uses) {
-	// 		fmt.Printf("== Broken defUses ==\n%v", fn.String())
-	// 		fmt.Printf("=== v.Uses:\n")
-	// 		for _, block := range fn.Blocks {
-	// 			for _, val := range block.Values {
-	// 				fmt.Printf("v%d:%v\n", val.Id, val.Uses)
-	// 			}
-	// 		}
-	// 		fmt.Printf("=== defUses:\n")
-	// 		for val, uses := range defUses {
-	// 			fmt.Printf("v%d:%v\n", val.Id, uses)
-	// 		}
-	// 		fmt.Printf("== Bad %v\n", val)
-	// 		utils.Fatal("def-uses chains are broken")
-	// 	}
-	// }
+	for val, uses := range defUses {
+		if len(val.Uses) != len(uses) {
+			fmt.Printf("== Broken defUses ==\n%v", fn.String())
+			fmt.Printf("=== v.Uses:\n")
+			for _, block := range fn.Blocks {
+				for _, val := range block.Values {
+					fmt.Printf("v%d:%v\n", val.Id, val.Uses)
+				}
+			}
+			fmt.Printf("=== defUses:\n")
+			for val, uses := range defUses {
+				fmt.Printf("v%d:%v\n", val.Id, uses)
+			}
+			fmt.Printf("== Bad %v\n", val)
+			utils.Fatal("def-uses chains are broken")
+		}
+	}
 
 	// All SSA values are typed then..
 	for _, block := range fn.Blocks {

@@ -133,6 +133,8 @@ func (p *Parser) parseControlStatement() AstStmt {
 		return p.parseIfStmt()
 	case KW_FOR:
 		return p.parseForStmt()
+	case KW_DO:
+		return p.parseDoWhileStmt()
 	case KW_WHILE:
 		return p.parseWhileStmt()
 	default:
@@ -150,6 +152,8 @@ func (p *Parser) parseStatement() AstStmt {
 		return p.parseIfStmt()
 	case KW_FOR:
 		return p.parseForStmt()
+	case KW_DO:
+		return p.parseDoWhileStmt()
 	case KW_WHILE:
 		return p.parseWhileStmt()
 	case KW_BREAK:
@@ -175,6 +179,18 @@ func (p *Parser) parseForStmt() AstStmt {
 	p.consume()
 	elem.Post = p.parseExpression()
 	elem.Body = p.parseBlockDecl("forBody")
+	return elem
+}
+
+func (p *Parser) parseDoWhileStmt() AstStmt {
+	p.guarantee(p.token == KW_DO, "Expected do")
+	p.consume()
+	// do {...} while cond form
+	elem := &DoWhileStmt{}
+	elem.Body = p.parseBlockDecl("doWhileBody")
+	p.guarantee(p.token == KW_WHILE, "Expected while")
+	p.consume()
+	elem.Cond = p.parseExpression()
 	return elem
 }
 
@@ -392,7 +408,18 @@ func (p *Parser) parsePrimaryExpr() AstExpr {
 		}
 		p.consume()
 		return elem
-	case LIT_FLOAT, LIT_BYTE:
+	case LIT_BYTE:
+		elem := &ByteExpr{}
+		elem.Type = BasicTypes[TypeByte]
+		var err error
+		val, err := strconv.ParseInt(p.lexeme, 10, 8)
+		elem.Value = byte(val)
+		if err != nil {
+			syntaxError("Failed to parse byte literal %v", p.lexeme)
+		}
+		p.consume()
+		return elem
+	case LIT_FLOAT:
 		// TODO: Complete me!
 		utils.Unimplement()
 	case LIT_DOUBLE:
@@ -414,7 +441,7 @@ func (p *Parser) parsePrimaryExpr() AstExpr {
 	case LIT_CHAR:
 		elem := &CharExpr{}
 		elem.Type = BasicTypes[TypeChar]
-		elem.Value = rune(p.lexeme[0])
+		elem.Value = int8(p.lexeme[0])
 		p.consume()
 		return elem
 	case KW_TRUE:
@@ -452,7 +479,8 @@ func (p *Parser) parseUnaryExpr() AstExpr {
 		val.Left = p.parseUnaryExpr()
 		return val
 	} else if Any(p.token,
-		LIT_DOUBLE, LIT_INT, LIT_LONG, LIT_SHORT, LIT_STR, LIT_CHAR,
+		LIT_DOUBLE, LIT_INT, LIT_LONG, LIT_SHORT, LIT_BYTE,
+		LIT_CHAR, LIT_FLOAT, LIT_STR,
 		TK_IDENT, TK_LPAREN, TK_LBRACKET, KW_TRUE, KW_FALSE,
 		KW_NULL, KW_FUNC) {
 		// 3.14,32,"foo",'c',name,[],true,null,func(){},name.foo()
@@ -592,16 +620,16 @@ func (p *Parser) parseLogicalOrExpr() AstExpr {
 	return left
 }
 
-func (p *Parser) parseTenaryExpr() AstExpr {
+func (p *Parser) parseConditionalExpr() AstExpr {
 	left := p.parseLogicalOrExpr()
 	if p.token == TK_QUESTION {
-		val := &TernaryExpr{}
+		val := &ConditionalExpr{}
 		val.Cond = left
 		p.consume()
 		val.Then = p.parseExpression()
 		p.guarantee(p.token == TK_COLON, "Expected :")
 		p.consume()
-		val.Else = p.parseTenaryExpr()
+		val.Else = p.parseConditionalExpr()
 		return val
 	}
 	return left
@@ -609,9 +637,10 @@ func (p *Parser) parseTenaryExpr() AstExpr {
 }
 
 func (p *Parser) parseExpression() AstExpr {
-	left := p.parseTenaryExpr()
+	left := p.parseConditionalExpr()
 	if Any(p.token, TK_ASSIGN, TK_PLUS_AGN, TK_MINUS_AGN, TK_TIMES_AGN,
-		TK_DIV_AGN, TK_MOD_AGN, TK_BITAND_AGN, TK_BITOR_AGN, TK_BITXOR_AGN) {
+		TK_DIV_AGN, TK_MOD_AGN, TK_BITAND_AGN, TK_BITOR_AGN, TK_BITXOR_AGN,
+		TK_LSHIFT_AGN, TK_RSHIFT_AGN) {
 		val := &AssignExpr{}
 		val.Opt = p.token
 		val.Left = left

@@ -19,7 +19,7 @@ class Block {
 	static id int
 
 	func Block() {
-		this.x = this.id 
+		this.x = this.id
 		this.id += 1
 	}
 }
@@ -30,10 +30,16 @@ class GraphBuilder {
 
 	func createBlock() {
 		let b = new Block
-		return b 
+		return b
+	}
+
+	public func buildGraph() {
 	}
 
 	pub func buildGraph() {
 		// ......
+		let adder = (a int, b int) int {
+			return a + b
+		}
 	}
 }

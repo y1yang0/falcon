@@ -19,13 +19,25 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-typedef uintptr_t yptr;
+typedef uintptr_t* yptr;
 typedef int8_t ybyte;
 typedef int16_t yshort;
+typedef int8_t ychar;
 typedef int32_t yint;
 typedef int64_t ylong;
 typedef float yfloat;
 typedef double ydouble;
 typedef bool ybool;
+
+typedef struct {
+    // Immutable data
+    ychar* data;
+    yint size;
+} ystring;
+
+typedef struct {
+    yptr data;
+    yint size;
+} yarray;
 
 #endif

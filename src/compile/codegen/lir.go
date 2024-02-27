@@ -312,9 +312,7 @@ func (lir *LIR) String() string {
 }
 
 func (lir *LIR) SetResult(val *ssa.Value, result IOperand) {
-	// if r, ok := result.(Register); ok && r.Virtual {
 	lir.v2r[val.Id] = result.(Register)
-	// }
 }
 
 func (lir *LIR) NewInstr(idx int, op LIROp, args ...IOperand) *Instruction {

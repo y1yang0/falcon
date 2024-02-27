@@ -47,6 +47,13 @@ void rt_assert_bool(ybool a, ybool b){
     }
 }
 
+void rt_assert_char(ychar a, ychar b) {
+    if(a != b){
+        printf("Assertion failed: %c != %c\n", a, b);
+        exit(1);
+    }
+}
+
 void rt_assert_short(yshort a, yshort b){
     if(a != b){
         printf("Assertion failed: %d != %d\n", a, b);
@@ -61,10 +68,44 @@ void rt_assert_long(ylong a, ylong b){
     }
 }
 
-// Test purpose, temporary, will remove later
+void rt_assert_string(ystring* a, ystring* b){
+    if(a->size != b->size){
+        printf("Assertion failed: %d != %d\n", a->size, b->size);
+        exit(1);
+    }
+    for(int i = 0; i < a->size; i++){
+        if(a->data[i] != b->data[i]){
+            printf("Assertion failed: %c != %c\n", a->data[i], b->data[i]);
+            exit(1);
+        }
+    }
+}
+
+ystring* rt_append(ystring* a, ychar c) {
+    ystring* s = (ystring*)malloc(sizeof(ystring));
+    s->size = a->size + 1;
+    s->data = (ychar*)malloc(sizeof(ychar) * s->size);
+    for (int i = 0; i < a->size; i++) {
+        s->data[i] = a->data[i];
+    }
+    s->data[a->size] = c;
+    return s;
+}
+
+void rt_cprint_char(ychar c){
+    printf("%c\n", c);
+}
+
 void rt_cprint_arr(yint* arr, yint size){
     for(int i = 0; i < size; i++){
         printf("%d ", arr[i]);
+    }
+    printf("\n");
+}
+
+void rt_cprint_string(ystring* str){
+    for(int i = 0; i < str->size; i++){
+        printf("%c", str->data[i]);
     }
     printf("\n");
 }
