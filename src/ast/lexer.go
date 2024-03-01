@@ -29,11 +29,13 @@ type Lexer struct {
 	column   int32
 }
 
-func (lexer *Lexer) Init(file *os.File) {
+func NewLexer(file *os.File) *Lexer {
+	lexer := new(Lexer)
 	lexer.reader = bufio.NewReader(file)
 	lexer.fileName = file.Name()
 	lexer.line = 1
 	lexer.column = 0
+	return lexer
 }
 
 func (lexer *Lexer) next() int32 {
@@ -174,7 +176,7 @@ func (lexer *Lexer) NextToken() (TokenKind, string) {
 			if lexer.peek() != '\'' {
 				lexer.throwSyntaxError("a character literal should surround with single-quote")
 			}
-			c = lexer.next()
+			lexer.next()
 		}
 		return LIT_CHAR, lexeme
 	case '"':
@@ -185,7 +187,7 @@ func (lexer *Lexer) NextToken() (TokenKind, string) {
 			lexeme += string(c)
 			cn = lexer.peek()
 		}
-		c = lexer.next()
+		lexer.next()
 		return LIT_STR, lexeme
 	case '[':
 		return TK_LBRACKET, "["
@@ -207,31 +209,37 @@ func (lexer *Lexer) NextToken() (TokenKind, string) {
 		return TK_COLON, ":"
 	case '+':
 		if lexer.peek() == '=' {
-			c = lexer.next()
+			lexer.next()
 			return TK_PLUS_AGN, "+="
+		} else if lexer.peek() == '+' {
+			lexer.next()
+			return TK_INCREMENT, "++"
 		}
 		return TK_PLUS, "+"
 	case '-':
 		if lexer.peek() == '=' {
-			c = lexer.next()
+			lexer.next()
 			return TK_MINUS_AGN, "-="
+		} else if lexer.peek() == '-' {
+			lexer.next()
+			return TK_DECREMENT, "--"
 		}
 		return TK_MINUS, "-"
 	case '*':
 		if lexer.peek() == '=' {
-			c = lexer.next()
+			lexer.next()
 			return TK_TIMES_AGN, "*="
 		}
 		return TK_TIMES, "*"
 	case '/':
 		if lexer.peek() == '=' {
-			c = lexer.next()
+			lexer.next()
 			return TK_DIV_AGN, "/="
 		}
 		return TK_DIV, "/"
 	case '%':
 		if lexer.peek() == '=' {
-			c = lexer.next()
+			lexer.next()
 			return TK_MOD_AGN, "%="
 		}
 		return TK_MOD, "%"
@@ -245,51 +253,51 @@ func (lexer *Lexer) NextToken() (TokenKind, string) {
 		return TK_QUESTION, "?"
 	case '=':
 		if lexer.peek() == '=' {
-			c = lexer.next()
+			lexer.next()
 			return TK_EQ, "=="
 		} else if lexer.peek() == '>' {
-			c = lexer.next()
+			lexer.next()
 			return TK_MATCH, "=>"
 		}
 		return TK_ASSIGN, "="
 	case '!':
 		if lexer.peek() == '=' {
-			c = lexer.next()
+			lexer.next()
 			return TK_NE, "!="
 		}
 		return TK_LOGNOT, "!"
 	case '|':
 		if lexer.peek() == '|' {
-			c = lexer.next()
+			lexer.next()
 			return TK_LOGOR, "||"
 		} else if lexer.peek() == '=' {
-			c = lexer.next()
+			lexer.next()
 			return TK_BITOR_AGN, "|="
 		}
 		return TK_BITOR, "|"
 	case '&':
 		if lexer.peek() == '&' {
-			c = lexer.next()
+			lexer.next()
 			return TK_LOGAND, "&&"
 		} else if lexer.peek() == '=' {
-			c = lexer.next()
+			lexer.next()
 			return TK_BITAND_AGN, "&="
 		}
 		return TK_BITAND, "&"
 	case '^':
 		if lexer.peek() == '=' {
-			c = lexer.next()
+			lexer.next()
 			return TK_BITXOR_AGN, "^="
 		}
 		return TK_BITXOR, "^"
 	case '>':
 		if lexer.peek() == '=' {
-			c = lexer.next()
+			lexer.next()
 			return TK_GE, ">="
 		} else if lexer.peek() == '>' {
-			c = lexer.next()
+			lexer.next()
 			if lexer.peek() == '=' {
-				c = lexer.next()
+				lexer.next()
 				return TK_RSHIFT_AGN, ">>="
 			}
 			return TK_RSHIFT, ">>"
@@ -297,12 +305,12 @@ func (lexer *Lexer) NextToken() (TokenKind, string) {
 		return TK_GT, ">"
 	case '<':
 		if lexer.peek() == '=' {
-			c = lexer.next()
+			lexer.next()
 			return TK_LE, "<="
 		} else if lexer.peek() == '<' {
-			c = lexer.next()
+			lexer.next()
 			if lexer.peek() == '=' {
-				c = lexer.next()
+				lexer.next()
 				return TK_LSHIFT_AGN, "<<="
 			}
 			return TK_LSHIFT, "<<"
@@ -321,8 +329,7 @@ func PrintTokenized(fileName string) {
 	}
 	defer file.Close()
 
-	lexer := new(Lexer)
-	lexer.Init(file)
+	lexer := NewLexer(file)
 	for c, l := lexer.NextToken(); c != TK_EOF; c, l = lexer.NextToken() {
 		fmt.Printf("[%v, \"%v\"]\n", c, l)
 	}

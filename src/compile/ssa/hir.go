@@ -63,8 +63,6 @@ const (
 	OpCmpNE
 
 	OpConst
-	OpCArray
-
 	OpPhi
 	OpCopy
 	OpCall
@@ -115,8 +113,6 @@ func (x Op) String() string {
 		return "CmpNE"
 	case OpConst:
 		return "Const"
-	case OpCArray:
-		return "CArray"
 	case OpPhi:
 		return "Phi"
 	case OpCopy:
@@ -225,16 +221,16 @@ func (v *Value) ReplaceUses(value *Value) {
 // the entry and no branches out except at the exit. It has a single entry point
 // and a single exit point.
 
-type BlockKind int
+type BlockControl int
 
 const (
-	BlockIf     BlockKind = iota // block has two successors
-	BlockGoto                    // block has only one successor
-	BlockReturn                  // block has no successors
-	BlockDead                    // block is dead and should be removed later
+	BlockIf     BlockControl = iota // block has two successors
+	BlockGoto                       // block has only one successor
+	BlockReturn                     // block has no successors
+	BlockDead                       // block is dead and should be removed later
 )
 
-func (kind BlockKind) String() string {
+func (kind BlockControl) String() string {
 	switch kind {
 	case BlockIf:
 		return "If"
@@ -257,7 +253,7 @@ const (
 type Block struct {
 	Func   *Func
 	Id     int
-	Kind   BlockKind
+	Kind   BlockControl
 	Values []*Value
 	Succs  []*Block
 	Preds  []*Block
@@ -366,7 +362,7 @@ func (block *Block) RemovePred(pred *Block) bool {
 	return false
 }
 
-func (block *Block) ResetTo(kind BlockKind, ctrl *Value) {
+func (block *Block) ResetTo(kind BlockControl, ctrl *Value) {
 	// TODO: Verify old block kind
 	block.Kind = kind
 	switch kind {
@@ -403,7 +399,7 @@ func NewFunc(name string) *Func {
 	return fn
 }
 
-func (fn *Func) NewBlock(kind BlockKind) *Block {
+func (fn *Func) NewBlock(kind BlockControl) *Block {
 	block := &Block{
 		fn,
 		fn.globalBlockId,
@@ -440,7 +436,7 @@ func (fn *Func) String() string {
 	return s
 }
 
-//------------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 // Debugging And Verification
 
 func (fn *Func) PrintDefUses() {

@@ -291,3 +291,29 @@ func TestPalindrome(t *testing.T) {
 	`
 	ExecExpect(source)
 }
+
+func TestUnionFind(t *testing.T) {
+	source := `
+	func find(parent []int, i int) int {
+		if parent[i]==-1 {
+			return i
+		}
+		return find(parent,parent[i])
+	}
+	func union(parent []int, x int, y int) {
+		let xset=find(parent,x)
+		let yset=find(parent,y)
+		parent[xset]=yset
+	}
+	func main(){
+		let n=3
+		let parent=[-1,-1,-1]
+		union(parent,0,1)
+		union(parent,1,2)
+		assert(find(parent,0),2)
+		assert(find(parent,1),2)
+		assert(find(parent,2),2)
+	}
+	`
+	ExecExpect(source)
+}

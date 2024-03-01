@@ -28,27 +28,27 @@ func MustBeType(t *testing.T, e ast.AstExpr, ty *ast.Type) {
 func TestBasicType(t *testing.T) {
 	root := ast.ParseText("0")
 	ast.InferTypes(false, root)
-	MustBeType(t, checkSimpleStmt(root).Expr, ast.BasicTypes[ast.TypeInt])
+	MustBeType(t, checkSimpleStmt(root).Expr, ast.TInt)
 
 	root = ast.ParseText("true")
 	ast.InferTypes(false, root)
-	MustBeType(t, checkSimpleStmt(root).Expr, ast.BasicTypes[ast.TypeBool])
+	MustBeType(t, checkSimpleStmt(root).Expr, ast.TBool)
 
 	root = ast.ParseText("false")
 	ast.InferTypes(false, root)
-	MustBeType(t, checkSimpleStmt(root).Expr, ast.BasicTypes[ast.TypeBool])
+	MustBeType(t, checkSimpleStmt(root).Expr, ast.TBool)
 
 	root = ast.ParseText("3.14")
 	ast.InferTypes(false, root)
-	MustBeType(t, checkSimpleStmt(root).Expr, ast.BasicTypes[ast.TypeDouble])
+	MustBeType(t, checkSimpleStmt(root).Expr, ast.TDouble)
 
 	root = ast.ParseText("'\t'")
 	ast.InferTypes(false, root)
-	MustBeType(t, checkSimpleStmt(root).Expr, ast.BasicTypes[ast.TypeChar])
+	MustBeType(t, checkSimpleStmt(root).Expr, ast.TChar)
 
 	root = ast.ParseText(`"this is string"`)
 	ast.InferTypes(false, root)
-	MustBeType(t, checkSimpleStmt(root).Expr, ast.BasicTypes[ast.TypeString])
+	MustBeType(t, checkSimpleStmt(root).Expr, ast.TString)
 
 	ast.PrintAst(root, true)
 }
@@ -57,94 +57,94 @@ func TestInferBinaryExpr(t *testing.T) {
 	root := ast.ParseText("3+2-2")
 	ast.InferTypes(false, root)
 	a := checkSimpleStmt(root)
-	MustBeType(t, a.Expr, ast.BasicTypes[ast.TypeInt])
+	MustBeType(t, a.Expr, ast.TInt)
 
 	root = ast.ParseText("-3+2-5")
 	ast.InferTypes(false, root)
 	a = checkSimpleStmt(root)
-	MustBeType(t, a.Expr, ast.BasicTypes[ast.TypeInt])
+	MustBeType(t, a.Expr, ast.TInt)
 
 	root = ast.ParseText("3+(2-2)")
 	ast.InferTypes(false, root)
 	a = checkSimpleStmt(root)
-	MustBeType(t, a.Expr, ast.BasicTypes[ast.TypeInt])
+	MustBeType(t, a.Expr, ast.TInt)
 
 	root = ast.ParseText("3+2*2")
 	ast.InferTypes(false, root)
 	a = checkSimpleStmt(root)
-	MustBeType(t, a.Expr, ast.BasicTypes[ast.TypeInt])
+	MustBeType(t, a.Expr, ast.TInt)
 
 	root = ast.ParseText("3/2*2")
 	ast.InferTypes(false, root)
 	a = checkSimpleStmt(root)
-	MustBeType(t, a.Expr, ast.BasicTypes[ast.TypeInt])
+	MustBeType(t, a.Expr, ast.TInt)
 
 	root = ast.ParseText("3/2.0*2")
 	ast.InferTypes(false, root)
 	a = checkSimpleStmt(root)
-	MustBeType(t, a.Expr, ast.BasicTypes[ast.TypeDouble])
+	MustBeType(t, a.Expr, ast.TDouble)
 
 	root = ast.ParseText("3/2.0*2.0")
 	ast.InferTypes(false, root)
 	a = checkSimpleStmt(root)
-	MustBeType(t, a.Expr, ast.BasicTypes[ast.TypeDouble])
+	MustBeType(t, a.Expr, ast.TDouble)
 
 	root = ast.ParseText("3/2.0*2.0+3")
 	ast.InferTypes(false, root)
 	a = checkSimpleStmt(root)
-	MustBeType(t, a.Expr, ast.BasicTypes[ast.TypeDouble])
+	MustBeType(t, a.Expr, ast.TDouble)
 
 	root = ast.ParseText("3/2.0*2.0+3.0")
 	ast.InferTypes(false, root)
 	a = checkSimpleStmt(root)
-	MustBeType(t, a.Expr, ast.BasicTypes[ast.TypeDouble])
+	MustBeType(t, a.Expr, ast.TDouble)
 
 	root = ast.ParseText("3/2.0*2.0+3.0-2")
 	ast.InferTypes(false, root)
 	a = checkSimpleStmt(root)
-	MustBeType(t, a.Expr, ast.BasicTypes[ast.TypeDouble])
+	MustBeType(t, a.Expr, ast.TDouble)
 
 	root = ast.ParseText("3/2.0*2.0+3.0-2.0")
 	ast.InferTypes(false, root)
 	a = checkSimpleStmt(root)
-	MustBeType(t, a.Expr, ast.BasicTypes[ast.TypeDouble])
+	MustBeType(t, a.Expr, ast.TDouble)
 }
 
 func TestInferUnaryExpr(t *testing.T) {
 	root := ast.ParseText("!true")
 	ast.InferTypes(false, root)
 	a := checkSimpleStmt(root)
-	MustBeType(t, a.Expr, ast.BasicTypes[ast.TypeBool])
+	MustBeType(t, a.Expr, ast.TBool)
 
 	root = ast.ParseText("!3")
 	ast.InferTypes(false, root)
 	a = checkSimpleStmt(root)
-	MustBeType(t, a.Expr, ast.BasicTypes[ast.TypeInt])
+	MustBeType(t, a.Expr, ast.TInt)
 
 	root = ast.ParseText("!false")
 	ast.InferTypes(false, root)
 	a = checkSimpleStmt(root)
-	MustBeType(t, a.Expr, ast.BasicTypes[ast.TypeBool])
+	MustBeType(t, a.Expr, ast.TBool)
 
 	root = ast.ParseText("-3")
 	ast.InferTypes(false, root)
 	a = checkSimpleStmt(root)
-	MustBeType(t, a.Expr, ast.BasicTypes[ast.TypeInt])
+	MustBeType(t, a.Expr, ast.TInt)
 
 	root = ast.ParseText("-3.0")
 	ast.InferTypes(false, root)
 	a = checkSimpleStmt(root)
-	MustBeType(t, a.Expr, ast.BasicTypes[ast.TypeDouble])
+	MustBeType(t, a.Expr, ast.TDouble)
 
 	root = ast.ParseText("-0")
 	ast.InferTypes(false, root)
 	a = checkSimpleStmt(root)
-	MustBeType(t, a.Expr, ast.BasicTypes[ast.TypeInt])
+	MustBeType(t, a.Expr, ast.TInt)
 
 	root = ast.ParseText("-3.0")
 	ast.InferTypes(false, root)
 	a = checkSimpleStmt(root)
-	MustBeType(t, a.Expr, ast.BasicTypes[ast.TypeDouble])
+	MustBeType(t, a.Expr, ast.TDouble)
 }
 
 func TestLong(t *testing.T) {

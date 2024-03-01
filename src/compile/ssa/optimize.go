@@ -15,16 +15,9 @@
 package ssa
 
 import (
-	"falcon/ast"
 	"falcon/utils"
 	"fmt"
 )
-
-// == Code conjured by yyang, Feb, 2024 ==
-
-//-----------------------------------------------------------------------------
-// HIR Optimizations
-// This file contains high-level optimizations on the HIR.
 
 type Optimizer struct {
 	Func  *Func
@@ -41,7 +34,6 @@ func (opt *Optimizer) Ideal() {
 		changed |= opt.simplifyPhi()
 		changed |= opt.simplifyCFG()
 		changed |= opt.dce()
-		fmt.Printf("======\n%v", opt.Func)
 		round++
 	}
 	if opt.Debug {
@@ -217,7 +209,7 @@ func (opt *Optimizer) dce() int {
 // This pass simplifies the control flow graph. It removes unnecessary jumps and
 // merges intermediate blocks.
 func isConstBool(val *Value) bool {
-	return val.Op == OpConst && val.Type == ast.TBool
+	return val.Op == OpConst && val.Type.IsBool()
 }
 
 func (opt *Optimizer) simplifyCFG() int {
@@ -315,40 +307,7 @@ func hash(nums ...int) int {
 	}
 }
 
-// func (v *Value) hash() int {
-// 	switch v.Op {
-// 	case OpCInt:
-// 		// Sym identifies an constant value
-// 		return hash(v.Sym.(int))
-// 	default:
-// 		// Op + Args + Sym identify an operation
-// 		// TODO: Implement this
-// 		return BadHashValue
-// 	}
-// }
-
-// func (opt *Optimizer) valueNumbering() int {
-// 	changed := 0
-// 	for _, block := range opt.Func.Blocks {
-// 		// per-block hash table
-// 		// FIXME: Kill when we have load and store
-// 		table := make(map[int]*Value, 0)
-// 		for _, val := range block.Values {
-// 			hash := val.hash()
-// 			if v, exist := table[hash]; exist && hash != BadHashValue {
-// 				// replace this value with existing value
-// 				if opt.Debug {
-// 					fmt.Printf("Same value number %v %v %v\n", hash, v, val)
-// 				}
-// 				val.ReplaceUses(v)
-// 				changed = 1
-// 			} else {
-// 				table[hash] = val
-// 			}
-// 		}
-// 	}
-// 	return changed
-// }
+const EnableLoopOpts = true
 
 func OptimizeHIR(fn *Func, debug bool) {
 	opt := &Optimizer{
@@ -356,4 +315,8 @@ func OptimizeHIR(fn *Func, debug bool) {
 		Debug: debug,
 	}
 	opt.Ideal()
+
+	if EnableLoopOpts {
+		OptimizeLoop(fn)
+	}
 }

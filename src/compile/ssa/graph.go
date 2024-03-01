@@ -22,7 +22,10 @@ import (
 
 // == Code conjured by yyang, Feb, 2024 ==
 
-//------------------------------------------------------------------------------
+const DebugPrintHIRVars = false
+const EnableOptimization = true
+
+// -----------------------------------------------------------------------------
 // SSA based HIR construction
 //
 // See "Simple and Efficient Construction of Static Single Assignment Form" for
@@ -244,7 +247,7 @@ func (g *GraphBuilder) sealBlock(block *Block) {
 	g.sealed[block] = true
 }
 
-func (g *GraphBuilder) newBlock(kind BlockKind) *Block {
+func (g *GraphBuilder) newBlock(kind BlockControl) *Block {
 	block := g.fn.NewBlock(kind)
 
 	// Let graph builder awares of newly created block
@@ -295,11 +298,11 @@ func (g *GraphBuilder) newCall(name string, t *ast.Type, args ...*Value) *Value 
 func (g *GraphBuilder) buildConst(n ast.AstExpr) *Value {
 	// Array constant
 	if _, ok := n.(*ast.ArrayExpr); ok {
-		val := g.getControl().NewValue(OpCArray, n.GetType())
+		val := g.getControl().NewValue(OpConst, n.GetType())
 		val.Sym = len(n.(*ast.ArrayExpr).Elems)
 		for idx, elem := range n.(*ast.ArrayExpr).Elems {
 			elem := g.build(elem)
-			index := g.getControl().NewValue(OpConst, ast.BasicTypes[ast.TypeInt])
+			index := g.getControl().NewValue(OpConst, ast.TInt)
 			index.Sym = idx
 			st := g.getControl().NewValue(OpStoreIndex, elem.Type)
 			st.AddArg(val, index, elem)
@@ -405,7 +408,7 @@ func (g *GraphBuilder) buildUnaryExpr(node *ast.UnaryExpr) *Value {
 		ssaOp, exist := token2ssaOp[node.Opt]
 		utils.Assert(exist, "unimplement %v", node.Opt.String())
 		zero := &ast.IntExpr{Value: 0}
-		zero.SetType(ast.BasicTypes[ast.TypeInt])
+		zero.SetType(ast.TInt)
 		left := g.buildConst(zero)
 		right := g.build(node.Left)
 		block := g.getControl()
@@ -497,7 +500,7 @@ func (g *GraphBuilder) buildStringBinaryExpr(node *ast.BinaryExpr) *Value {
 	utils.Assert(exist, "unimplement %v", node.Opt.String())
 	left := g.build(node.Left)
 	right := g.build(node.Right)
-	return g.newCall(call, ast.BasicTypes[ast.TypeString], left, right)
+	return g.newCall(call, ast.TString, left, right)
 }
 
 func (g *GraphBuilder) buildBinaryExpr(node *ast.BinaryExpr) *Value {
@@ -549,7 +552,7 @@ func (g *GraphBuilder) buildBinaryExpr(node *ast.BinaryExpr) *Value {
 //
 //	 loop entry
 //	     │
-//	     │  ┌───loop latch
+//	     │  ┌───loop tail
 //	     ▼  ▼       ▲
 //	loop header     │
 //	     │  │       │
@@ -559,8 +562,8 @@ func (g *GraphBuilder) buildBinaryExpr(node *ast.BinaryExpr) *Value {
 //
 // In the terminology, loop entry dominates the entire loop, loop header contains
 // the loop conditional test, loop body refers to the code that is repeated, loop
-// latch contains the backedge to loop header, for simple loops, the loop body is
-// equal to loop latch, and loop exit refers to the block that dominated by the
+// tail contains the backedge to loop header, for simple loops, the loop body is
+// equal to loop tail, and loop exit refers to the block that dominated by the
 // entire loop.
 func (g *GraphBuilder) buildLoop(init, cond, body, post ast.AstNode) {
 	loopHeader := g.newBlock(BlockIf)
@@ -577,21 +580,21 @@ func (g *GraphBuilder) buildLoop(init, cond, body, post ast.AstNode) {
 	if init != nil {
 		g.build(init)
 	}
+
+	// Build loop header and condition test
 	g.setControl(loopHeader)
-	// @@ Note, we don't want to seal up the loop header here, because there are
-	// still unvisited predecessor block from backedge, so we set a flag to skip
+	// @@ Note, I don't want to seal up the loop header here, because there are
+	// still unvisited predecessor block from backedge, so I set a flag to skip
 	// the next seal operation during setControl
 	g.skipNextSeal = true
 	val := g.build(cond)
-
-	// Build the loop condition test
 	// @@ Don't use loop header here, because the generation of condition alters
 	// the control flow, adding intermediate edge between loop header and loop body
 	// For example, if the condition is a short-circuit operator, the CFGs looks
 	// like below form
 	//
 	//	 loop entry
-	//	     │   ┌──loop latch
+	//	     │   ┌──loop tail
 	//	     ▼   ▼     ▲
 	//	 loop header   │
 	//	     │   │     │
@@ -600,10 +603,10 @@ func (g *GraphBuilder) buildLoop(init, cond, body, post ast.AstNode) {
 	//	     ▼   ▼     │
 	//	 merge block   │
 	//	     │   │     │
-	//	     │   └──►loop body
-	//	     ▼
+	//	     ▼   └──►loop body
+	//	 loop exit
 	//
-	// The current control block is merge block, and we should wire edges from it
+	// The current control block is merge block, and I should wire edges from it
 	// to loop body and loop exit rather than starting from loop header
 	loopHeaderTail := g.getControl()
 	loopHeaderTail.ResetTo(BlockIf, val)
@@ -612,27 +615,23 @@ func (g *GraphBuilder) buildLoop(init, cond, body, post ast.AstNode) {
 
 	// Build loop body
 	g.setControl(loopBody)
-
 	scope := g.enterBlockScope()
 	scope.exit = loopExit
 	scope.post = loopHeader
 	g.build(body)
 	g.exitBlockScope()
-
 	if !g.isStopControl() {
 		// Build loop post only when present and loop is not breaked
 		if post != nil {
 			g.build(post)
 		}
 	}
-	// Add backedge from tail of loop body to loop header
 	loopBodyTail := g.getControl()
-	addEdge(loopBodyTail, loopHeader)
+	addEdge(loopBodyTail, loopHeader) //  Add backedge from body tail to header
 
+	// Good! I've done. Seal up the loop header because all its predecessors have
+	// been processed, which in turns complete orphan phis
 	g.setControl(loopExit)
-
-	// Backedge from loop latch to loop header has been processed, we can seal
-	// the loop headerwhich in turns complete orphan phis
 	g.sealBlock(loopHeader)
 }
 
@@ -640,8 +639,8 @@ func (g *GraphBuilder) buildLoop(init, cond, body, post ast.AstNode) {
 // The Rotated Loop Form
 //
 // The rotated loop is a loop that has been transformed from natural loop to
-// a form that has a single backedge from loop latch to loop header, the loop
-// latch contains the loop conditional test instead of loop header
+// a form that has a single backedge from loop tail to loop header, the loop
+// tail contains the loop conditional test instead of loop header
 //
 //	loop entry
 //	    │
@@ -655,13 +654,44 @@ func (g *GraphBuilder) buildLoop(init, cond, body, post ast.AstNode) {
 //	    │         │
 //	    │         │
 //	    ▼         │
-//	loop latch────┘
+//	loop tail─────┘
 //	    │
 //	    │
 //	    ▼
 //	loop exit
-func (g *GraphBuilder) buildRotatedLoop(init, cond, body, post ast.AstNode) {
-	utils.Unimplement()
+func (g *GraphBuilder) buildRotatedLoop(cond, body ast.AstNode) {
+	loopHeader := g.newBlock(BlockGoto)
+	loopHeader.Hint = HintLoopHeader
+	loopTail := g.newBlock(BlockGoto)
+	loopExit := g.newBlock(BlockGoto)
+
+	// Reset loop entry
+	loopEntry := g.getControl()
+	loopEntry.ResetTo(BlockGoto, nil)
+	addEdge(loopEntry, loopHeader)
+
+	// Build loop body. For simple loop, loop body and loop header are same block.
+	g.setControl(loopHeader)
+	g.skipNextSeal = true // Same as buildLoop, skip sealing loop header
+	scope := g.enterBlockScope()
+	scope.exit = loopExit
+	scope.post = loopHeader
+	g.build(body)
+	g.exitBlockScope()
+	loopBodyTail := g.getControl()
+	addEdge(loopBodyTail, loopTail)
+
+	// Build loop tail and condition test
+	g.setControl(loopTail)
+	val := g.build(cond)
+	loopTail = g.getControl()
+	loopTail.ResetTo(BlockIf, val)
+	addEdge(loopTail, loopHeader) // order is important, true path first
+	addEdge(loopTail, loopExit)
+	g.setControl(loopExit)
+
+	// Seal up the loop header because all its predecessors have been processed
+	g.sealBlock(loopHeader)
 }
 
 func (g *GraphBuilder) buildIf(cond, thenB, elseB ast.AstNode, hasResult bool) *Value {
@@ -721,7 +751,7 @@ func (g *GraphBuilder) buildIf(cond, thenB, elseB ast.AstNode, hasResult bool) *
 	addEdge(mergeElse, merge)
 	g.setControl(merge)
 
-	// Good! We've done. See if we need to create a phi value for merge block
+	// Good! I've done. See if I need to create a phi value for merge block
 	if hasResult {
 		utils.Assert(thenVal != nil && elseVal != nil, "sanity check")
 		utils.Assert(thenVal.Type == elseVal.Type, "type mismatch")
@@ -795,7 +825,7 @@ func (g *GraphBuilder) build(n ast.AstNode) *Value {
 	case *ast.WhileStmt:
 		g.buildLoop(nil, n.Cond, n.Body, nil)
 	case *ast.DoWhileStmt:
-		g.buildRotatedLoop(nil, n.Cond, n.Body, nil)
+		g.buildRotatedLoop(n.Cond, n.Body)
 	case *ast.SimpleStmt:
 		g.build(n.Expr)
 	case *ast.ReturnStmt:
@@ -862,7 +892,9 @@ func BuildHIR(funcDecl *ast.FuncDecl) *Func {
 	finalBlock.ResetTo(BlockReturn, nil) //terminate the program
 
 	g.verify()
-	// g.printVars()
+	if DebugPrintHIRVars {
+		g.printVars()
+	}
 	return fn
 }
 
@@ -874,12 +906,14 @@ func Compile(funcDecl *ast.FuncDecl, debug bool) *Func {
 		fmt.Printf("== HIR(%s) ==\n", funcDecl.Name)
 		fmt.Printf("[[BuildHIR]]\n%v", fn.String())
 	}
-	OptimizeHIR(fn, debug)
-	VerifyHIR(fn)
-	if debug {
-		fmt.Printf("[[Ideal]]\n%v", fn.String())
-		//fmt.Printf("==DU after ideal==\n")
-		//fn.PrintDefUses()
+	if EnableOptimization {
+		OptimizeHIR(fn, debug)
+		VerifyHIR(fn)
+		if debug {
+			fmt.Printf("[[Ideal]]\n%v", fn.String())
+			//fmt.Printf("==DU after ideal==\n")
+			//fn.PrintDefUses()
+		}
 	}
 	return fn
 }

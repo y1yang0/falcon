@@ -17,8 +17,11 @@ package utils
 import (
 	"bytes"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 )
 
 func Assert(cond bool, format string, msg ...interface{}) {
@@ -81,4 +84,51 @@ func ExecuteCmd(workDir string, args ...string) string {
 		os.Exit(1)
 	}
 	return outStr
+}
+
+func CopyFile(src, dst string) error {
+	sourceFileStat, err := os.Stat(src)
+	if err != nil {
+		return err
+	}
+
+	if !sourceFileStat.Mode().IsRegular() {
+		return fmt.Errorf("%s is not a regular file", src)
+	}
+
+	source, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer source.Close()
+
+	destination, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer destination.Close()
+
+	_, err = io.Copy(destination, source)
+	if err != nil {
+		return err
+	}
+
+	return os.Chmod(dst, sourceFileStat.Mode())
+}
+
+func CopyFilesToTempDir(dir string, files []string) (string, error) {
+	tempDir, err := ioutil.TempDir("", dir)
+	if err != nil {
+		return "", err
+	}
+	for _, file := range files {
+		destFile := filepath.Join(tempDir, filepath.Base(file))
+		// fmt.Printf("Copying %s to %s\n", file, destFile)
+		err := CopyFile(file, destFile)
+		if err != nil {
+			os.RemoveAll(tempDir)
+			return "", err
+		}
+	}
+	return tempDir, nil
 }

@@ -15,7 +15,6 @@
 package codegen
 
 import (
-	"falcon/ast"
 	"falcon/compile/ssa"
 	"falcon/utils"
 	"fmt"
@@ -207,8 +206,6 @@ func (lir *LIR) lowerArithmetic(val *ssa.Value) {
 		}
 		lir.SetResult(val, result)
 	case ssa.OpNegate:
-		// @@ Note that negation is different from not, negation is arithmetic
-		// negation, not is bitwise negation
 		left := lir.NewVReg(val.Args[0])
 		result := lir.NewVReg(val)
 		lir.NewInstr(val.Block.Id, LIR_Mov, result, left, result).comment(val)
@@ -242,23 +239,24 @@ func (lir *LIR) lowerCall(val *ssa.Value) {
 
 func (lir *LIR) lowerConst(val *ssa.Value) {
 	utils.Assert(val.Op == ssa.OpConst, "sanity check")
-	switch val.Type {
-	case ast.TInt:
+	t := val.Type
+	switch {
+	case t.IsInt():
 		r := Imm{LIRTypeDWord, val.Sym.(int)}
 		res := lir.NewVReg(val)
 		lir.NewInstr(val.Block.Id, LIR_Mov, res, r, res).comment(val)
 		lir.SetResult(val, res)
-	case ast.TShort:
+	case t.IsShort():
 		r := Imm{LIRTypeWord, val.Sym.(int16)}
 		res := lir.NewVReg(val)
 		lir.NewInstr(val.Block.Id, LIR_Mov, res, r, res).comment(val)
 		lir.SetResult(val, res)
-	case ast.TLong:
+	case t.IsLong():
 		r := Imm{LIRTypeQWord, val.Sym.(int64)}
 		res := lir.NewVReg(val)
 		lir.NewInstr(val.Block.Id, LIR_Mov, res, r, res).comment(val)
 		lir.SetResult(val, res)
-	case ast.TBool:
+	case t.IsBool():
 		b := 0
 		if val.Sym.(bool) {
 			b = 1
@@ -267,18 +265,18 @@ func (lir *LIR) lowerConst(val *ssa.Value) {
 		res := lir.NewVReg(val)
 		lir.NewInstr(val.Block.Id, LIR_Mov, res, r, res).comment(val)
 		lir.SetResult(val, res)
-	case ast.TChar:
+	case t.IsChar():
 		r := Imm{LIRTypeByte, val.Sym.(int8)}
 		res := lir.NewVReg(val)
 		lir.NewInstr(val.Block.Id, LIR_Mov, res, r, res).comment(val)
 		lir.SetResult(val, res)
-	case ast.TDouble:
+	case t.IsDouble():
 		imm := lir.NewText(fmt.Sprintf("%f", val.Sym.(float64)), TextFloat)
 		addr := lir.NewAddr(LIRTypeQWord, RIP, NoReg, imm)
 		res := lir.NewVReg(val)
 		lir.NewInstr(val.Block.Id, LIR_Mov, res, addr, res).comment(val)
 		lir.SetResult(val, res)
-	case ast.TString:
+	case t.IsString():
 		// arg0: ptr of string
 		str := val.Sym.(string)
 		ptrArg := ArgReg(0, LIRTypeDWord)
@@ -293,6 +291,17 @@ func (lir *LIR) lowerConst(val *ssa.Value) {
 		res := lir.NewVReg(val)
 		lir.NewInstr(val.Block.Id, LIR_Mov, res, retReg, res).comment(val)
 		lir.SetResult(val, res)
+	case t.IsArray():
+		// arg0: len of array
+		lenArg := ArgReg(0, LIRTypeDWord)
+		lir.NewInstr(val.Block.Id, LIR_Mov, lenArg, lir.NewImm(val.Sym.(int)), lenArg).comment(val)
+		// call runtime stub
+		// FIXME: Return type should be arch dependent
+		retReg := ReturnReg(LIRTypeQWord)
+		lir.NewInstr(val.Block.Id, LIR_Call, retReg, Symbol{"runtime_new_array"}).comment(val)
+		res := lir.NewVReg(val)
+		lir.NewInstr(val.Block.Id, LIR_Mov, res, retReg, res).comment(val)
+		lir.SetResult(val, res)
 	default:
 		utils.Unimplement()
 	}
@@ -304,7 +313,7 @@ func (lir *LIR) lowerIndexed(val *ssa.Value) {
 	argIndex := val.Args[1]
 	switch val.Op {
 	case ssa.OpStoreIndex:
-		if argVar.Type == ast.TString {
+		if argVar.Type.IsString() {
 			utils.Fatal("string is immutable")
 		} else {
 			argValue := val.Args[2]
@@ -315,7 +324,7 @@ func (lir *LIR) lowerIndexed(val *ssa.Value) {
 			lir.NewInstr(val.Block.Id, LIR_Mov, addr, elem, addr).comment(val)
 		}
 	case ssa.OpLoadIndex:
-		if argVar.Type == ast.TString {
+		if argVar.Type.IsString() {
 			// load char from string
 			// deference string to get data field
 			base := lir.NewVReg(argVar)
@@ -362,17 +371,6 @@ func (lir *LIR) lowerValue(val *ssa.Value) {
 		lir.SetResult(val, result)
 	case ssa.OpCall:
 		lir.lowerCall(val)
-	case ssa.OpCArray:
-		// arg0: len of array
-		lenArg := ArgReg(0, LIRTypeDWord)
-		lir.NewInstr(val.Block.Id, LIR_Mov, lenArg, lir.NewImm(val.Sym.(int)), lenArg).comment(val)
-		// call runtime stub
-		// FIXME: Return type should be arch dependent
-		retReg := ReturnReg(LIRTypeQWord)
-		lir.NewInstr(val.Block.Id, LIR_Call, retReg, Symbol{"runtime_new_array"}).comment(val)
-		res := lir.NewVReg(val)
-		lir.NewInstr(val.Block.Id, LIR_Mov, res, retReg, res).comment(val)
-		lir.SetResult(val, res)
 	case ssa.OpStoreIndex, ssa.OpLoadIndex:
 		lir.lowerIndexed(val)
 	default:
@@ -418,7 +416,7 @@ func (lir *LIR) lowerBlockControl(block *ssa.Block) {
 			lir.SetResult(ctrl, left)
 		}
 		// Pure return
-		lir.NewInstr(block.Id, LIR_Ret, NoReg).comment(ctrl)
+		lir.NewInstr(block.Id, LIR_Ret, NoReg).comment("ret")
 	case ssa.BlockIf:
 		ctrl := block.Ctrl
 		switch ctrl.Op {
@@ -456,6 +454,6 @@ func Lower(fn *ssa.Func) *LIR {
 		lir.lowerBlockControl(block)
 	}
 
-	lir.verify()
+	VerifyLIR(lir)
 	return lir
 }

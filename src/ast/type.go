@@ -44,31 +44,31 @@ type Type struct {
 	ElemType *Type
 }
 
-var BasicTypes = map[TypeKind]*Type{
-	TypeInt:    {Kind: TypeInt},
-	TypeLong:   {Kind: TypeLong},
-	TypeShort:  {Kind: TypeShort},
-	TypeDouble: {Kind: TypeDouble},
-	TypeFloat:  {Kind: TypeFloat},
-	TypeChar:   {Kind: TypeChar},
-	TypeBool:   {Kind: TypeBool},
-	TypeByte:   {Kind: TypeByte},
-	TypeVoid:   {Kind: TypeVoid},
-	TypeString: {Kind: TypeString},
-}
-
+// Pre-defined basic types
 var (
-	TInt    = BasicTypes[TypeInt]
-	TLong   = BasicTypes[TypeLong]
-	TShort  = BasicTypes[TypeShort]
-	TDouble = BasicTypes[TypeDouble]
-	TFloat  = BasicTypes[TypeFloat]
-	TChar   = BasicTypes[TypeChar]
-	TBool   = BasicTypes[TypeBool]
-	TByte   = BasicTypes[TypeByte]
-	TVoid   = BasicTypes[TypeVoid]
-	TString = BasicTypes[TypeString]
+	TInt    = &Type{Kind: TypeInt}
+	TLong   = &Type{Kind: TypeLong}
+	TShort  = &Type{Kind: TypeShort}
+	TDouble = &Type{Kind: TypeDouble}
+	TFloat  = &Type{Kind: TypeFloat}
+	TChar   = &Type{Kind: TypeChar}
+	TBool   = &Type{Kind: TypeBool}
+	TByte   = &Type{Kind: TypeByte}
+	TVoid   = &Type{Kind: TypeVoid}
+	TString = &Type{Kind: TypeString}
 )
+
+func (t *Type) IsInt() bool    { return t == TInt }
+func (t *Type) IsLong() bool   { return t == TLong }
+func (t *Type) IsShort() bool  { return t == TShort }
+func (t *Type) IsDouble() bool { return t == TDouble }
+func (t *Type) IsFloat() bool  { return t == TFloat }
+func (t *Type) IsChar() bool   { return t == TChar }
+func (t *Type) IsBool() bool   { return t == TBool }
+func (t *Type) IsByte() bool   { return t == TByte }
+func (t *Type) IsVoid() bool   { return t == TVoid }
+func (t *Type) IsString() bool { return t == TString }
+func (t *Type) IsArray() bool  { return t.Kind == TypeArray }
 
 func (t *Type) String() string {
 	switch t.Kind {
@@ -100,7 +100,7 @@ func (t *Type) String() string {
 	return ""
 }
 
-//-----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 // Types Inference
 // It annotates the AST with type information by propagating types from the leaves
 // and applying some special rules for certain nodes.
@@ -224,15 +224,15 @@ func (infer *Infer) resolveType(opt TokenKind, left, right interface{}) *Type {
 	}
 
 	// string
-	if lt == BasicTypes[TypeString] || rt == BasicTypes[TypeString] {
-		return BasicTypes[TypeString]
+	if lt == TString || rt == TString {
+		return TString
 	}
 
-	if lt == BasicTypes[TypeDouble] || rt == BasicTypes[TypeDouble] {
-		return BasicTypes[TypeDouble]
+	if lt == TDouble || rt == TDouble {
+		return TDouble
 	}
-	if lt == BasicTypes[TypeLong] || rt == BasicTypes[TypeLong] {
-		return BasicTypes[TypeLong]
+	if lt == TLong || rt == TLong {
+		return TLong
 	}
 	return rt
 }
@@ -280,8 +280,8 @@ func (infer *Infer) infer(node AstNode, _ AstNode, depth int) interface{} {
 		// cmp op and short-circuit op are special cases, they always produce
 		// bool type.
 		if node.Opt.IsCmpOp() || node.Opt.IsShortCircuitOp() {
-			node.SetType(BasicTypes[TypeBool])
-			return BasicTypes[TypeBool]
+			node.SetType(TBool)
+			return TBool
 		}
 		leftType := infer.infer(node.Left, node, depth+1)
 		rightType := infer.infer(node.Right, node, depth+1)
@@ -353,7 +353,7 @@ func (infer *Infer) infer(node AstNode, _ AstNode, depth int) interface{} {
 // It creates an instance of the Infer struct and uses it to walk the AST,
 // inferring types for expressions and verifying the balance of scopes.
 // After type inference, it checks if all expressions are typed.
-func InferTypes(debug bool, roots ...*RootDecl) {
+func InferTypes(debug bool, roots ...*PackageDecl) {
 	infer := &Infer{}
 
 	// Register return type for all functions
@@ -395,7 +395,7 @@ func InferTypes(debug bool, roots ...*RootDecl) {
 // It performs type checks on the AST, ensuring that all expressions are typed
 // and obey the rules of the language for certain AST construction component.
 type TypeChecker struct {
-	root    *RootDecl
+	root    *PackageDecl
 	current *FuncDecl
 	funcs   []*FuncDecl
 }
@@ -486,7 +486,7 @@ func (tc *TypeChecker) check(node AstNode, _ AstNode, depth int) interface{} {
 	return nil
 }
 
-func TypeCheck(debug bool, roots ...*RootDecl) {
+func TypeCheck(debug bool, roots ...*PackageDecl) {
 	typeChecker := &TypeChecker{}
 	// Register all functions
 	typeChecker.funcs = make([]*FuncDecl, 0)

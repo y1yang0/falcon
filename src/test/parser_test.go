@@ -43,7 +43,7 @@ func SyntaxError() {
 }
 
 func checkSimpleStmt(root ast.AstDecl) *ast.SimpleStmt {
-	st, ok := root.(*ast.RootDecl).List[0].(*ast.SimpleStmt)
+	st, ok := root.(*ast.PackageDecl).List[0].(*ast.SimpleStmt)
 	if !ok {
 		SyntaxError()
 	}
@@ -51,7 +51,7 @@ func checkSimpleStmt(root ast.AstDecl) *ast.SimpleStmt {
 }
 
 func checkLetStmt(root ast.AstDecl) *ast.LetStmt {
-	st, ok := root.(*ast.RootDecl).List[0].(*ast.LetStmt)
+	st, ok := root.(*ast.PackageDecl).List[0].(*ast.LetStmt)
 	if !ok {
 		SyntaxError()
 	}
@@ -59,7 +59,7 @@ func checkLetStmt(root ast.AstDecl) *ast.LetStmt {
 }
 
 func checkIfStmt(root ast.AstDecl) *ast.IfStmt {
-	st, ok := root.(*ast.RootDecl).List[0].(*ast.IfStmt)
+	st, ok := root.(*ast.PackageDecl).List[0].(*ast.IfStmt)
 	if !ok {
 		SyntaxError()
 	}
@@ -67,7 +67,7 @@ func checkIfStmt(root ast.AstDecl) *ast.IfStmt {
 }
 
 func checkForStmt(root ast.AstDecl) *ast.ForStmt {
-	st, ok := root.(*ast.RootDecl).List[0].(*ast.ForStmt)
+	st, ok := root.(*ast.PackageDecl).List[0].(*ast.ForStmt)
 	if !ok {
 		SyntaxError()
 	}

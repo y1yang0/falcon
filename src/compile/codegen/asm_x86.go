@@ -21,8 +21,6 @@ import (
 	"strings"
 )
 
-// == Code conjured by yyang, Feb, 2024 ==
-
 type Assembler struct {
 	buf         string
 	stackOffset int
@@ -123,7 +121,8 @@ func (asm *Assembler) operand(operand IOperand) string {
 		// lower 32 bits of %rcx remains unchanged.
 		indexReg64bits := CallerSaveRegs(LIRTypeQWord)[1]
 		asm.mov(indexReg, indexReg)
-		return fmt.Sprintf("%s(%%%s, %%%s, %d)", asm.operand(v.Disp), baseReg, indexReg64bits, v.Scale)
+		return fmt.Sprintf("%s(%%%s, %%%s, %d)",
+			asm.operand(v.Disp), baseReg, indexReg64bits, v.Scale)
 	case Label:
 		// Same as asm.label, add per-function label prefix
 		return fmt.Sprintf(".F%d_%s", asm.funcIndex, v.Name)
@@ -154,8 +153,7 @@ func (asm *Assembler) loadToScratchReg(src IOperand) IOperand {
 		source := asm.operand(src)
 		// Move src to scratch register
 		asm.buf += fmt.Sprintf("  mov%s %s, %s\n",
-			asm.suffix(srcType),
-			source, asm.operand(scratch0))
+			asm.suffix(srcType), source, asm.operand(scratch0))
 		// Return scratch register
 		return scratch0
 	default:

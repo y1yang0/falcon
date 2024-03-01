@@ -1117,6 +1117,199 @@ func TestString(t *testing.T) {
 	ExecExpect(source)
 }
 
+func TestDoWhile(t *testing.T) {
+	source := `
+	func main(){
+		let i=0
+		do {
+			i+=1
+		} while i<3
+		assert(i,3)
+	}
+	`
+	ExecExpect(source)
+}
+
+func TestDoWhile2(t *testing.T) {
+	source := `
+	func main(){
+		let i=0
+		do {
+			i+=1
+			if i==2 {
+				continue
+			}
+		} while i<3
+		assert(i,3)
+	}
+	`
+	ExecExpect(source)
+}
+
+func TestDoWhile3(t *testing.T) {
+	source := `
+	func main(){
+		let i=0
+		do {
+			i+=1
+			if i==2 {
+				break
+			}
+		} while i<3
+		assert(i,2)
+	}
+	`
+	ExecExpect(source)
+}
+
+func TestDoWhileNesting(t *testing.T) {
+	source := `
+	func main(){
+		let i=0
+		do {
+			i+=1
+			let j=0
+			do {
+				j+=1
+				if j==2 {
+					break
+				}
+			} while j<3
+		} while i<3
+		assert(i,3)
+	}
+	`
+	ExecExpect(source)
+}
+
+func TestDoWhileNesting2(t *testing.T) {
+	source := `
+	func main(){
+		let i=0
+		do {
+			i+=1
+			let j=0
+			do {
+				j+=1
+				if j==2 {
+					continue
+				}
+			} while j<3
+		} while i<3
+		assert(i,3)
+	}
+	`
+	ExecExpect(source)
+}
+
+func TestDoWhileNestingWhile(t *testing.T) {
+	source := `
+	func main(){
+		let i=0
+		do {
+			i+=1
+			let j=0
+			while j<3 {
+				j+=1
+				if j==2 {
+					break
+				}
+			}
+		} while i<3
+		assert(i,3)
+	}
+	`
+	ExecExpect(source)
+}
+
+func TestDoWhileNestingWhile2(t *testing.T) {
+	source := `
+	func main(){
+		let i=0
+		do {
+			i+=1
+			let j=0
+			while j<3 {
+				j+=1
+			}
+		} while i<3
+		assert(i,3)
+	}
+	`
+	ExecExpect(source)
+}
+
+// test for and do while and while
+func TestLoopRemix(t *testing.T) {
+	source := `
+	func main(){
+		let i=0
+		for j=0;j<3;j+=1{
+			i+=1
+			let k=0
+			while k<3 {
+				k+=1
+			}
+		}
+		assert(i,3)
+	}
+	`
+	ExecExpect(source)
+}
+
+func TestLoopRemix2(t *testing.T) {
+	source := `
+	func main(){
+		let i=0
+		for j=0;j<3;j+=1{
+			i+=1
+			let k=0
+			do {
+				k+=1
+			} while k<3
+		}
+		assert(i,3)
+	}
+	`
+	ExecExpect(source)
+}
+
+func TestLoopRemix3(t *testing.T) {
+	source := `
+	func main(){
+		let i=0
+		let j=0
+		while j<3 {
+			j+=1
+			let k=0
+			do {
+				k+=1
+			} while k<3
+			i+=1
+		}
+		assert(i,3)
+	}
+	`
+	ExecExpect(source)
+}
+
+// test loop with return
+func TestLoopReturn(t *testing.T) {
+	source := `
+	func main(){
+		let i=0
+		for j=0;j<3;j+=1{
+			i+=1
+			if j==1 {
+				return
+			}
+		}
+		assert(1,2)
+	}
+	`
+	ExecExpect(source)
+}
+
 // func TestSubstring(t *testing.T) {
 // 	source := `
 // 	func substring(s string, l int, r int) string {

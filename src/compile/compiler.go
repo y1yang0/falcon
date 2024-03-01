@@ -20,7 +20,6 @@ import (
 	"falcon/compile/ssa"
 	"falcon/utils"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"log"
 	"os"
@@ -80,13 +79,12 @@ func parseY(filePath string, debug bool) ast.AstDecl {
 	return root
 }
 
-func compileY(wd string, filePath string, debug bool, root *ast.RootDecl) {
+func compileY(wd string, filePath string, debug bool, root *ast.PackageDecl) {
 	libName := getLibNameFromPath(filePath)
 
 	lirs := make([]*codegen.LIR, 0)
 	for _, funcDecl := range root.Func {
 		decl := funcDecl.(*ast.FuncDecl)
-		// Build SSA from AST and apply optimizations and lowering IR to LIR
 		fn := ssa.Compile(decl, debug)
 		if debug {
 			if DebugDumpSSA {
@@ -142,59 +140,7 @@ func linkFiles(wd string, target string, files ...string) {
 	}
 }
 
-func copyFile(src, dst string) error {
-	sourceFileStat, err := os.Stat(src)
-	if err != nil {
-		return err
-	}
-
-	if !sourceFileStat.Mode().IsRegular() {
-		return fmt.Errorf("%s is not a regular file", src)
-	}
-
-	source, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer source.Close()
-
-	destination, err := os.Create(dst)
-	if err != nil {
-		return err
-	}
-	defer destination.Close()
-
-	_, err = io.Copy(destination, source)
-	if err != nil {
-		return err
-	}
-
-	return os.Chmod(dst, sourceFileStat.Mode())
-}
-
-func copyFilesToTempDir(dir string, files []string) (string, error) {
-	tempDir, err := ioutil.TempDir("", dir)
-	if err != nil {
-		return "", err
-	}
-	for _, file := range files {
-		destFile := filepath.Join(tempDir, filepath.Base(file))
-		// fmt.Printf("Copying %s to %s\n", file, destFile)
-		err := copyFile(file, destFile)
-		if err != nil {
-			os.RemoveAll(tempDir)
-			return "", err
-		}
-	}
-	return tempDir, nil
-}
-
-// CompileTheWorld compiles the given source code and its dependencies into a
-// binary executable. It creates a temporary directory, copies the necessary files
-// into it, compiles the compiler, compiles the source code, compiles the C
-// runtime, links all the files together, and finally copies the resulting binary
-// to the current working directory. The compiled binary is returned as a string
-// representing its file path.
+// COMPILE THE WORLD :0
 func CompileTheWorld(wd string, source string) string {
 	// Create temp dir and copy dependencies into it
 	filesToCopy := []string{
@@ -204,19 +150,19 @@ func CompileTheWorld(wd string, source string) string {
 		filepath.Join(wd, "../lib", "falcon.h"),
 		source,
 	}
-	tempDir, err := copyFilesToTempDir("", filesToCopy)
+	tempDir, err := utils.CopyFilesToTempDir("", filesToCopy)
 	if err != nil {
 		fmt.Println("Failed to copy files:", err)
 		os.Exit(1)
 	}
 	fmt.Printf("Compilation workspace: %s\n", tempDir)
-	//defer os.RemoveAll(tempDir)
+	defer os.RemoveAll(tempDir)
 
 	// Compile the compiler
 	stdLib := filepath.Join(tempDir, "stdlib.y")
 	userCode := filepath.Join(tempDir, filepath.Base(source))
-	root1 := parseY(stdLib, false).(*ast.RootDecl)
-	root2 := parseY(userCode, true).(*ast.RootDecl)
+	root1 := parseY(stdLib, false).(*ast.PackageDecl)
+	root2 := parseY(userCode, true).(*ast.PackageDecl)
 	// Type inference requires the whole-world AST
 	ast.InferTypes(true /*debug*/, root1, root2)
 	ast.TypeCheck(true /*debug*/, root1, root2)
@@ -236,7 +182,7 @@ func CompileTheWorld(wd string, source string) string {
 		libName = libName + ".exe"
 		target = target + ".exe"
 	}
-	err = copyFile(filepath.Join(tempDir, libName), target)
+	err = utils.CopyFile(filepath.Join(tempDir, libName), target)
 	if err != nil {
 		fmt.Printf("Failed to copy the binary: %s\n", err)
 		os.Exit(1)

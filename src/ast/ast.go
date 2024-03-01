@@ -149,92 +149,62 @@ type FuncCallExpr struct {
 	Args []AstExpr
 }
 
-func (e *Expr) String() string {
-	return fmt.Sprintf("Expr{%v}", e.Type)
+type IncExpr struct {
+	Expr
+	Left AstExpr
 }
 
-func (e *Expr) GetType() *Type {
-	return e.Type
+type DecExpr struct {
+	Expr
+	Left AstExpr
 }
 
-func (e *Expr) SetType(t *Type) {
-	e.Type = t
-}
+func (e *Expr) String() string { return fmt.Sprintf("Expr{%v}", e.Type) }
 
-func (a *ArrayExpr) String() string {
-	return fmt.Sprintf("ArrayExpr")
-}
+func (e *Expr) GetType() *Type { return e.Type }
 
-func (a *AssignExpr) String() string {
-	return fmt.Sprintf("AssignExpr{%v}", a.Opt.String())
-}
+func (e *Expr) SetType(t *Type) { e.Type = t }
 
-func (n *NullExpr) String() string {
-	return fmt.Sprintf("NullExpr")
-}
-func (f *FuncCallExpr) String() string {
-	return fmt.Sprintf("FuncCallExpr{%v}", f.Name)
-}
+func (a *ArrayExpr) String() string { return fmt.Sprintf("ArrayExpr") }
 
-func (t *UnaryExpr) String() string {
-	return fmt.Sprintf("UnaryExpr{%v}", t.Opt.String())
-}
+func (a *AssignExpr) String() string { return fmt.Sprintf("AssignExpr{%v}", a.Opt.String()) }
 
-func (b *BinaryExpr) String() string {
-	return fmt.Sprintf("BinaryExpr{%v}", b.Opt.String())
-}
+func (n *NullExpr) String() string     { return fmt.Sprintf("NullExpr") }
+func (f *FuncCallExpr) String() string { return fmt.Sprintf("FuncCallExpr{%v}", f.Name) }
 
-func (i *IndexExpr) String() string {
-	return fmt.Sprintf("IndexExpr{%v}", i.Name)
-}
+func (t *UnaryExpr) String() string { return fmt.Sprintf("UnaryExpr{%v}", t.Opt.String()) }
 
-func (v *VarExpr) String() string {
-	return fmt.Sprintf("VarExpr{%v}", v.Name)
-}
+func (b *BinaryExpr) String() string { return fmt.Sprintf("BinaryExpr{%v}", b.Opt.String()) }
 
-func (t *ConditionalExpr) String() string {
-	return fmt.Sprintf("ConditionalExpr")
-}
+func (i *IndexExpr) String() string { return fmt.Sprintf("IndexExpr{%v}", i.Name) }
 
-func (i *IntExpr) String() string {
-	return fmt.Sprintf("IntExpr{%v}", i.Value)
-}
+func (v *VarExpr) String() string { return fmt.Sprintf("VarExpr{%v}", v.Name) }
 
-func (l *LongExpr) String() string {
-	return fmt.Sprintf("LongExpr{%vL}", l.Value)
-}
+func (t *ConditionalExpr) String() string { return fmt.Sprintf("ConditionalExpr") }
 
-func (s *ShortExpr) String() string {
-	return fmt.Sprintf("ShortExpr{%vS}", s.Value)
-}
+func (i *IntExpr) String() string { return fmt.Sprintf("IntExpr{%v}", i.Value) }
 
-func (d *DoubleExpr) String() string {
-	return fmt.Sprintf("DoubleExpr{%v}", d.Value)
-}
+func (l *LongExpr) String() string { return fmt.Sprintf("LongExpr{%vL}", l.Value) }
 
-func (f *FloatExpr) String() string {
-	return fmt.Sprintf("FloatExpr{%v}", f.Value)
-}
+func (s *ShortExpr) String() string { return fmt.Sprintf("ShortExpr{%vS}", s.Value) }
 
-func (c *CharExpr) String() string {
-	return fmt.Sprintf("CharExpr{'%c'}", c.Value)
-}
+func (d *DoubleExpr) String() string { return fmt.Sprintf("DoubleExpr{%v}", d.Value) }
 
-func (b *BoolExpr) String() string {
-	return fmt.Sprintf("BoolExpr{%v}", b.Value)
-}
+func (f *FloatExpr) String() string { return fmt.Sprintf("FloatExpr{%v}", f.Value) }
 
-func (b *ByteExpr) String() string {
-	return fmt.Sprintf("ByteExpr{%vB}", b.Value)
-}
+func (c *CharExpr) String() string { return fmt.Sprintf("CharExpr{'%c'}", c.Value) }
 
-func (v *VoidExpr) String() string {
-	return fmt.Sprintf("VoidExpr")
-}
+func (b *BoolExpr) String() string { return fmt.Sprintf("BoolExpr{%v}", b.Value) }
 
-func (s *StrExpr) String() string {
-	return fmt.Sprintf("StrExpr{\"%s\"}", s.Value)
-}
+func (b *ByteExpr) String() string { return fmt.Sprintf("ByteExpr{%vB}", b.Value) }
+
+func (v *VoidExpr) String() string { return fmt.Sprintf("VoidExpr") }
+
+func (s *StrExpr) String() string { return fmt.Sprintf("StrExpr{\"%s\"}", s.Value) }
+
+func (i *IncExpr) String() string { return fmt.Sprintf("IncExpr") }
+
+func (d *DecExpr) String() string { return fmt.Sprintf("DecExpr") }
 
 // -----------------------------------------------------------------------------
 // Statements
@@ -285,45 +255,31 @@ type BreakStmt struct {
 type ContinueStmt struct {
 }
 
-func (f *ForStmt) String() string {
-	return fmt.Sprintf("ForStmt")
+type PackageStmt struct {
+	Name string
 }
 
-func (w *WhileStmt) String() string {
-	return fmt.Sprintf("WhileStmt")
-}
+func (f *ForStmt) String() string { return fmt.Sprintf("ForStmt") }
 
-func (d *DoWhileStmt) String() string {
-	return fmt.Sprintf("DoWhileStmt")
-}
+func (w *WhileStmt) String() string { return fmt.Sprintf("WhileStmt") }
 
-func (b *BreakStmt) String() string {
-	return fmt.Sprintf("BreakStmt")
-}
+func (d *DoWhileStmt) String() string { return fmt.Sprintf("DoWhileStmt") }
 
-func (c *ContinueStmt) String() string {
-	return fmt.Sprintf("ContinueStmt")
-}
+func (b *BreakStmt) String() string { return fmt.Sprintf("BreakStmt") }
 
-func (s *SimpleStmt) String() string {
-	return fmt.Sprintf("SimpleStmt")
-}
+func (c *ContinueStmt) String() string { return fmt.Sprintf("ContinueStmt") }
 
-func (s *AssignStmt) String() string {
-	return fmt.Sprintf("AssignStmt")
-}
+func (s *SimpleStmt) String() string { return fmt.Sprintf("SimpleStmt") }
 
-func (s *ReturnStmt) String() string {
-	return fmt.Sprintf("ReturnStmt")
-}
+func (s *AssignStmt) String() string { return fmt.Sprintf("AssignStmt") }
 
-func (s *LetStmt) String() string {
-	return fmt.Sprintf("LetStmt")
-}
+func (s *ReturnStmt) String() string { return fmt.Sprintf("ReturnStmt") }
 
-func (s *IfStmt) String() string {
-	return fmt.Sprintf("IfStmt")
-}
+func (s *LetStmt) String() string { return fmt.Sprintf("LetStmt") }
+
+func (s *IfStmt) String() string { return fmt.Sprintf("IfStmt") }
+
+func (s *PackageStmt) String() string { return fmt.Sprintf("PackageStmt") }
 
 // -----------------------------------------------------------------------------
 // Declarations
@@ -343,20 +299,16 @@ type FuncDecl struct {
 	Builtin bool
 }
 
-type RootDecl struct {
+type PackageDecl struct {
 	AstDecl
 	Source string
 	Func   []AstDecl
 	List   []AstNode
 }
 
-func (r *RootDecl) String() string {
-	return fmt.Sprintf("RootDecl")
-}
+func (r *PackageDecl) String() string { return fmt.Sprintf("PackageDecl{%s}", r.Source) }
 
-func (b *BlockDecl) String() string {
-	return fmt.Sprintf("BlockDecl{%s}", b.Name)
-}
+func (b *BlockDecl) String() string { return fmt.Sprintf("BlockDecl{%s}", b.Name) }
 
 func (f *FuncDecl) String() string {
 	if f.Builtin {
@@ -428,6 +380,8 @@ const (
 	TK_COLON      // :
 	TK_DOT        // .
 	TK_QUESTION   // ?
+	TK_INCREMENT  // ++
+	TK_DECREMENT  // --
 
 	KW_IF       // if
 	KW_ELSE     // else
@@ -442,6 +396,7 @@ const (
 	KW_BREAK    // break
 	KW_CONTINUE // continue
 	KW_LET      // let
+	KW_PACKAGE  // package
 
 	KW_TYPE_INT    // int
 	KW_TYPE_LONG   // long
@@ -588,6 +543,10 @@ func (t TokenKind) String() string {
 		return "."
 	case TK_QUESTION:
 		return "?"
+	case TK_INCREMENT:
+		return "++"
+	case TK_DECREMENT:
+		return "--"
 
 	case KW_IF:
 		return "if"
@@ -615,6 +574,8 @@ func (t TokenKind) String() string {
 		return "continue"
 	case KW_LET:
 		return "let"
+	case KW_PACKAGE:
+		return "package"
 
 	case KW_TYPE_INT:
 		return "int"
@@ -656,6 +617,7 @@ var Keywords = map[string]TokenKind{
 	"break":    KW_BREAK,
 	"continue": KW_CONTINUE,
 	"let":      KW_LET,
+	"package":  KW_PACKAGE,
 
 	"int":    KW_TYPE_INT,
 	"long":   KW_TYPE_LONG,
@@ -746,6 +708,11 @@ func (walker *AstWalker) WalkAst(node AstNode, prev AstNode, depth int) {
 	case *WhileStmt:
 		walker.WalkAst(v.Cond, v, depth+1)
 		walker.WalkAst(v.Body, v, depth+1)
+	case *DoWhileStmt:
+		walker.WalkAst(v.Cond, v, depth+1)
+		walker.WalkAst(v.Body, v, depth+1)
+	case *PackageStmt:
+		// Do nothing
 
 	case *UnaryExpr:
 		walker.WalkAst(v.Left, v, depth+1)
@@ -773,7 +740,7 @@ func (walker *AstWalker) WalkAst(node AstNode, prev AstNode, depth int) {
 	case *IndexExpr:
 		walker.WalkAst(v.Index, v, depth+1)
 
-	case *RootDecl:
+	case *PackageDecl:
 		for _, elem := range v.List {
 			walker.WalkAst(elem, v, depth+1)
 		}
@@ -797,7 +764,7 @@ func (walker *AstWalker) WalkAst(node AstNode, prev AstNode, depth int) {
 	}
 }
 
-func PrintAst(root *RootDecl, showTypes bool) {
+func PrintAst(root *PackageDecl, showTypes bool) {
 	printer := func(node AstNode, _ AstNode, ident int) interface{} {
 		if node == nil {
 			return nil
@@ -818,7 +785,7 @@ func PrintAst(root *RootDecl, showTypes bool) {
 	walker.WalkAst(root, root, 0)
 }
 
-func DumpAstToDotFile(name string, root *RootDecl) {
+func DumpAstToDotFile(name string, root *PackageDecl) {
 	f, err := os.Create(fmt.Sprintf("ast_%s.dot", name))
 	if err != nil {
 		panic(err)

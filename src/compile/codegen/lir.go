@@ -178,22 +178,21 @@ func (x Imm) GetType() *LIRType {
 
 // GetLIRType returns the LIRType for the given AST type
 func GetLIRType(astType *ast.Type) *LIRType {
-	if astType.Kind == ast.TypeArray {
+	switch {
+	case astType.IsLong():
 		return LIRTypeQWord
-	} else if astType.Kind == ast.TypeString {
-		return LIRTypeQWord
-	}
-	switch astType {
-	case ast.TLong:
-		return LIRTypeQWord
-	case ast.TInt:
+	case astType.IsInt():
 		return LIRTypeDWord
-	case ast.TShort:
+	case astType.IsShort():
 		return LIRTypeWord
-	case ast.TChar, ast.TBool, ast.TByte:
+	case astType.IsChar(), astType.IsBool(), astType.IsByte():
 		return LIRTypeByte
-	case ast.TVoid:
+	case astType.IsVoid():
 		return LIRTypeVoid
+	case astType.IsString():
+		return LIRTypeQWord
+	case astType.IsArray():
+		return LIRTypeQWord
 	default:
 		utils.Unimplement()
 	}
@@ -385,21 +384,21 @@ func (lir *LIR) NewVReg(v *ssa.Value) Register {
 }
 
 func (x *Instruction) comment(v interface{}) {
-	switch v.(type) {
+	switch v := v.(type) {
 	case *ssa.Block:
-		x.Comment = fmt.Sprintf("b%d", v.(*ssa.Block).Id)
+		x.Comment = fmt.Sprintf("b%d", v.Id)
 	case *ssa.Value:
 		x.Comment = fmt.Sprintf("%v", v)
 	case string:
-		x.Comment = v.(string)
+		x.Comment = v
 	default:
 		utils.Unimplement()
 	}
 }
 
-func (x *LIR) verify() {
+func VerifyLIR(lir *LIR) {
 	// verify that all instructions have a result
-	for _, instrs := range x.Instructions {
+	for _, instrs := range lir.Instructions {
 		for _, instr := range instrs {
 			utils.Assert(instr.Result != nil, "miss result")
 			utils.Assert(len(instr.Args) >= 0 && len(instr.Args) <= 2, "miss args")

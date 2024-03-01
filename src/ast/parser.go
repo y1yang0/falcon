@@ -84,7 +84,7 @@ func (p *Parser) parseFuncDecl() *FuncDecl {
 	if retType := p.parseType(); retType != nil {
 		fn.RetType = retType
 	} else {
-		fn.RetType = BasicTypes[TypeVoid]
+		fn.RetType = TVoid
 	}
 
 	if p.token == TK_LBRACE {
@@ -142,6 +142,18 @@ func (p *Parser) parseControlStatement() AstStmt {
 	}
 }
 
+// The statement BNF is as follows:
+//
+//	statement = return_stmt
+//				| let_stmt
+//				| if_stmt
+//				| for_stmt
+//				| do_while_stmt
+//				| while_stmt
+//				| break_stmt
+//				| continue_stmt
+//				| simple_stmt
+
 func (p *Parser) parseStatement() AstStmt {
 	switch p.token {
 	case KW_RETURN:
@@ -160,6 +172,8 @@ func (p *Parser) parseStatement() AstStmt {
 		return p.parseBreakStmt()
 	case KW_CONTINUE:
 		return p.parseContinueStmt()
+	case KW_PACKAGE:
+		return p.parsePackageStmt()
 	default:
 		return p.parseSimpleStmt()
 	}
@@ -297,6 +311,15 @@ func (p *Parser) parseContinueStmt() AstStmt {
 	return &ContinueStmt{}
 }
 
+func (p *Parser) parsePackageStmt() AstStmt {
+	p.guarantee(p.token == KW_PACKAGE, "Expected package")
+	p.consume()
+	elem := &PackageStmt{}
+	elem.Name = p.lexeme
+	p.consume()
+	return elem
+}
+
 // The expression BNF is as follows:
 //
 //	expression = tenary_expr
@@ -379,7 +402,7 @@ func (p *Parser) parsePrimaryExpr() AstExpr {
 	case KW_FUNC:
 	case LIT_INT:
 		elem := &IntExpr{}
-		elem.Type = BasicTypes[TypeInt]
+		elem.Type = TInt
 		var err error
 		elem.Value, err = strconv.Atoi(p.lexeme)
 		if err != nil {
@@ -389,7 +412,7 @@ func (p *Parser) parsePrimaryExpr() AstExpr {
 		return elem
 	case LIT_LONG:
 		elem := &LongExpr{}
-		elem.Type = BasicTypes[TypeLong]
+		elem.Type = TLong
 		var err error
 		elem.Value, err = strconv.ParseInt(p.lexeme, 10, 64)
 		if err != nil {
@@ -399,7 +422,7 @@ func (p *Parser) parsePrimaryExpr() AstExpr {
 		return elem
 	case LIT_SHORT:
 		elem := &ShortExpr{}
-		elem.Type = BasicTypes[TypeShort]
+		elem.Type = TShort
 		var err error
 		val, err := strconv.ParseInt(p.lexeme, 10, 16)
 		elem.Value = int16(val)
@@ -410,7 +433,7 @@ func (p *Parser) parsePrimaryExpr() AstExpr {
 		return elem
 	case LIT_BYTE:
 		elem := &ByteExpr{}
-		elem.Type = BasicTypes[TypeByte]
+		elem.Type = TByte
 		var err error
 		val, err := strconv.ParseInt(p.lexeme, 10, 8)
 		elem.Value = byte(val)
@@ -424,7 +447,7 @@ func (p *Parser) parsePrimaryExpr() AstExpr {
 		utils.Unimplement()
 	case LIT_DOUBLE:
 		elem := &DoubleExpr{}
-		elem.Type = BasicTypes[TypeDouble]
+		elem.Type = TDouble
 		var err error
 		elem.Value, err = strconv.ParseFloat(p.lexeme, 64)
 		if err != nil {
@@ -434,25 +457,25 @@ func (p *Parser) parsePrimaryExpr() AstExpr {
 		return elem
 	case LIT_STR:
 		elem := &StrExpr{}
-		elem.Type = BasicTypes[TypeString]
+		elem.Type = TString
 		elem.Value = p.lexeme
 		p.consume()
 		return elem
 	case LIT_CHAR:
 		elem := &CharExpr{}
-		elem.Type = BasicTypes[TypeChar]
+		elem.Type = TChar
 		elem.Value = int8(p.lexeme[0])
 		p.consume()
 		return elem
 	case KW_TRUE:
 		elem := &BoolExpr{}
-		elem.Type = BasicTypes[TypeBool]
+		elem.Type = TBool
 		elem.Value = true
 		p.consume()
 		return elem
 	case KW_FALSE:
 		elem := &BoolExpr{}
-		elem.Type = BasicTypes[TypeBool]
+		elem.Type = TBool
 		elem.Value = false
 		p.consume()
 		return elem
@@ -493,6 +516,7 @@ func (p *Parser) parseUnaryExpr() AstExpr {
 	}
 	return nil
 }
+
 func (p *Parser) parseMulExpr() AstExpr {
 	left := p.parseUnaryExpr()
 	for Any(p.token, TK_TIMES, TK_DIV, TK_MOD) {
@@ -656,31 +680,31 @@ func (p *Parser) parseType() *Type {
 	switch p.token {
 	case KW_TYPE_INT:
 		p.consume()
-		return BasicTypes[TypeInt]
+		return TInt
 	case KW_TYPE_LONG:
 		p.consume()
-		return BasicTypes[TypeLong]
+		return TLong
 	case KW_TYPE_SHORT:
 		p.consume()
-		return BasicTypes[TypeShort]
+		return TShort
 	case KW_TYPE_CHAR:
 		p.consume()
-		return BasicTypes[TypeChar]
+		return TChar
 	case KW_TYPE_FLOAT:
 		p.consume()
-		return BasicTypes[TypeFloat]
+		return TFloat
 	case KW_TYPE_DOUBLE:
 		p.consume()
-		return BasicTypes[TypeDouble]
+		return TDouble
 	case KW_TYPE_STR:
 		p.consume()
-		return BasicTypes[TypeString]
+		return TString
 	case KW_TYPE_BYTE:
 		p.consume()
-		return BasicTypes[TypeByte]
+		return TByte
 	case KW_TYPE_BOOL:
 		p.consume()
-		return BasicTypes[TypeBool]
+		return TBool
 	case TK_LBRACKET:
 		p.consume()
 		p.guarantee(p.token == TK_RBRACKET, "Expected ']'")
@@ -689,13 +713,14 @@ func (p *Parser) parseType() *Type {
 	}
 	return nil
 }
-func (p *Parser) Init(file *os.File) {
-	p.lexer = new(Lexer)
-	p.lexer.Init(file)
+func NewParser(file *os.File) *Parser {
+	p := new(Parser)
+	p.lexer = NewLexer(file)
+	return p
 }
 
 func (p *Parser) Parse() AstNode {
-	root := &RootDecl{}
+	root := &PackageDecl{}
 	root.Source = p.lexer.fileName
 	p.consume()
 	if p.token == TK_EOF {
@@ -714,25 +739,26 @@ func (p *Parser) Parse() AstNode {
 	return root
 }
 
-func ParseFile(fileName string) *RootDecl {
+func ParseFile(fileName string) *PackageDecl {
 	file, err := os.Open(fileName)
 	if err != nil {
 		panic(err)
 	}
 	defer file.Close()
-	parser := new(Parser)
-	parser.Init(file)
-	return parser.Parse().(*RootDecl)
+	parser := NewParser(file)
+	return parser.Parse().(*PackageDecl)
 }
 
-func ParseText(text string) *RootDecl {
+func ParseText(text string) *PackageDecl {
 	tmpFile, err := ioutil.TempFile(os.TempDir(), "falcon")
 	if err != nil {
-		fmt.Printf("Cannot create temporary file", err)
+		fmt.Errorf("Cannot create temporary file %v", err)
+		os.Exit(1)
 	}
 	_, err = tmpFile.WriteString(text)
 	if err != nil {
-		fmt.Printf("Failed to write to temporary file", err)
+		fmt.Errorf("Failed to write to temporary file %v", err)
+		os.Exit(1)
 	}
 	defer os.Remove(tmpFile.Name())
 	file, err := os.Open(tmpFile.Name())
@@ -740,7 +766,6 @@ func ParseText(text string) *RootDecl {
 		panic(err)
 	}
 	defer file.Close()
-	parser := new(Parser)
-	parser.Init(file)
-	return parser.Parse().(*RootDecl)
+	parser := NewParser(file)
+	return parser.Parse().(*PackageDecl)
 }

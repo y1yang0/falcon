@@ -16,7 +16,7 @@ This file is used to record the todo list of Falcon.
 - [ ] Implement floating point number arithmetic
 - [x] Set default value for variables if using `let p int` without initialization(yyang)
 - [ ] Simplify lower pass and documents rationale of register usages
-- [ ] Implement `do-while` loop
+- [x] Implement `do-while` loop
 - [ ] Implement `break labbel` syntax
 - [x] Implements operators: `!`, `+=`, `-=`, `*=`, `/=`, `%=`, `>>=`, `<<=`, `^=`, `&=`, `|=`
 - [x] Consider consilidating HIR `CInt` `CLong` into `Const`
@@ -25,9 +25,11 @@ This file is used to record the todo list of Falcon.
 - [ ] Register allocation, either on HIR or LIR
 - [ ] Implement `++` and `--` operators
 - [x] New logo
-- [ ] Add verification for LIR
-- [ ] Review all type comparison
+- [x] Add verification for LIR
+- [x] Review all type comparison
 - [ ] Official website
+- [ ] Experimental loop opts
+- [ ] Use of undefined variable should be an error
 
 ## Milestone 2: Falcon with object oriented programming
 - [ ] New lang feature: `struct`
