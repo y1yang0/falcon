@@ -15,7 +15,6 @@
 package codegen
 
 import (
-	"falcon/ast"
 	"falcon/utils"
 	"runtime"
 )
@@ -28,7 +27,6 @@ type ArchABI interface {
 	ArgReg(idx int) Register
 	CallerSaveRegs() []Register
 	CalleeSaveRegs() []Register
-	ScratchRegs(t *ast.Type) Register
 }
 
 var (
@@ -112,22 +110,41 @@ var (
 	R15B = Register{Index: -1, Virtual: false, Name: "r15b", Type: LIRTypeByte}
 
 	// 128-bit registers
-	XMM0  = Register{Index: -1, Virtual: false, Name: "xmm0", Type: LIRTypeVector16}
-	XMM1  = Register{Index: -1, Virtual: false, Name: "xmm1", Type: LIRTypeVector16}
-	XMM2  = Register{Index: -1, Virtual: false, Name: "xmm2", Type: LIRTypeVector16}
-	XMM3  = Register{Index: -1, Virtual: false, Name: "xmm3", Type: LIRTypeVector16}
-	XMM4  = Register{Index: -1, Virtual: false, Name: "xmm4", Type: LIRTypeVector16}
-	XMM5  = Register{Index: -1, Virtual: false, Name: "xmm5", Type: LIRTypeVector16}
-	XMM6  = Register{Index: -1, Virtual: false, Name: "xmm6", Type: LIRTypeVector16}
-	XMM7  = Register{Index: -1, Virtual: false, Name: "xmm7", Type: LIRTypeVector16}
-	XMM8  = Register{Index: -1, Virtual: false, Name: "xmm8", Type: LIRTypeVector16}
-	XMM9  = Register{Index: -1, Virtual: false, Name: "xmm9", Type: LIRTypeVector16}
-	XMM10 = Register{Index: -1, Virtual: false, Name: "xmm10", Type: LIRTypeVector16}
-	XMM11 = Register{Index: -1, Virtual: false, Name: "xmm11", Type: LIRTypeVector16}
-	XMM12 = Register{Index: -1, Virtual: false, Name: "xmm12", Type: LIRTypeVector16}
-	XMM13 = Register{Index: -1, Virtual: false, Name: "xmm13", Type: LIRTypeVector16}
-	XMM14 = Register{Index: -1, Virtual: false, Name: "xmm14", Type: LIRTypeVector16}
-	XMM15 = Register{Index: -1, Virtual: false, Name: "xmm15", Type: LIRTypeVector16}
+	// single precision floating point
+	XMM0S  = Register{Index: -1, Virtual: false, Name: "xmm0", Type: LIRTypeVector16S}
+	XMM1S  = Register{Index: -1, Virtual: false, Name: "xmm1", Type: LIRTypeVector16S}
+	XMM2S  = Register{Index: -1, Virtual: false, Name: "xmm2", Type: LIRTypeVector16S}
+	XMM3S  = Register{Index: -1, Virtual: false, Name: "xmm3", Type: LIRTypeVector16S}
+	XMM4S  = Register{Index: -1, Virtual: false, Name: "xmm4", Type: LIRTypeVector16S}
+	XMM5S  = Register{Index: -1, Virtual: false, Name: "xmm5", Type: LIRTypeVector16S}
+	XMM6S  = Register{Index: -1, Virtual: false, Name: "xmm6", Type: LIRTypeVector16S}
+	XMM7S  = Register{Index: -1, Virtual: false, Name: "xmm7", Type: LIRTypeVector16S}
+	XMM8S  = Register{Index: -1, Virtual: false, Name: "xmm8", Type: LIRTypeVector16S}
+	XMM9S  = Register{Index: -1, Virtual: false, Name: "xmm9", Type: LIRTypeVector16S}
+	XMM10S = Register{Index: -1, Virtual: false, Name: "xmm10", Type: LIRTypeVector16S}
+	XMM11S = Register{Index: -1, Virtual: false, Name: "xmm11", Type: LIRTypeVector16S}
+	XMM12S = Register{Index: -1, Virtual: false, Name: "xmm12", Type: LIRTypeVector16S}
+	XMM13S = Register{Index: -1, Virtual: false, Name: "xmm13", Type: LIRTypeVector16S}
+	XMM14S = Register{Index: -1, Virtual: false, Name: "xmm14", Type: LIRTypeVector16S}
+	XMM15S = Register{Index: -1, Virtual: false, Name: "xmm15", Type: LIRTypeVector16S}
+	// double precision floating point
+	// TODO: Consolidate them
+	XMM0D  = Register{Index: -1, Virtual: false, Name: "xmm0", Type: LIRTypeVector16D}
+	XMM1D  = Register{Index: -1, Virtual: false, Name: "xmm1", Type: LIRTypeVector16D}
+	XMM2D  = Register{Index: -1, Virtual: false, Name: "xmm2", Type: LIRTypeVector16D}
+	XMM3D  = Register{Index: -1, Virtual: false, Name: "xmm3", Type: LIRTypeVector16D}
+	XMM4D  = Register{Index: -1, Virtual: false, Name: "xmm4", Type: LIRTypeVector16D}
+	XMM5D  = Register{Index: -1, Virtual: false, Name: "xmm5", Type: LIRTypeVector16D}
+	XMM6D  = Register{Index: -1, Virtual: false, Name: "xmm6", Type: LIRTypeVector16D}
+	XMM7D  = Register{Index: -1, Virtual: false, Name: "xmm7", Type: LIRTypeVector16D}
+	XMM8D  = Register{Index: -1, Virtual: false, Name: "xmm8", Type: LIRTypeVector16D}
+	XMM9D  = Register{Index: -1, Virtual: false, Name: "xmm9", Type: LIRTypeVector16D}
+	XMM10D = Register{Index: -1, Virtual: false, Name: "xmm10", Type: LIRTypeVector16D}
+	XMM11D = Register{Index: -1, Virtual: false, Name: "xmm11", Type: LIRTypeVector16D}
+	XMM12D = Register{Index: -1, Virtual: false, Name: "xmm12", Type: LIRTypeVector16D}
+	XMM13D = Register{Index: -1, Virtual: false, Name: "xmm13", Type: LIRTypeVector16D}
+	XMM14D = Register{Index: -1, Virtual: false, Name: "xmm14", Type: LIRTypeVector16D}
+	XMM15D = Register{Index: -1, Virtual: false, Name: "xmm15", Type: LIRTypeVector16D}
 
 	// 256-bit registers
 )
@@ -152,23 +169,6 @@ func ReturnReg(t *LIRType) Register {
 
 }
 
-// The scratch register is used to hold intermediate values during code generation.
-func ScratchRegs(t *LIRType) []Register {
-	switch t {
-	case LIRTypeQWord:
-		return []Register{R10, R11}
-	case LIRTypeDWord:
-		return []Register{R10D, R11D}
-	case LIRTypeWord:
-		return []Register{R10W, R11W}
-	case LIRTypeByte:
-		return []Register{R10B, R11B}
-	default:
-		utils.ShouldNotReachHere()
-	}
-	return nil
-}
-
 func CallerSaveRegs(t *LIRType) []Register {
 	switch t {
 	case LIRTypeQWord:
@@ -179,6 +179,12 @@ func CallerSaveRegs(t *LIRType) []Register {
 		return []Register{AX, CX, DX, SI, DI, R8W, R9W, R10W, R11W}
 	case LIRTypeByte:
 		return []Register{AL, CL, DL, SIL, DIL, R8B, R9B, R10B, R11B}
+	case LIRTypeVector16S:
+		// all %xmm are volatile, i.e. caller-save
+		return []Register{XMM0S, XMM1S, XMM2S, XMM3S, XMM4S, XMM5S, XMM6S, XMM7S, XMM8S, XMM9S, XMM10S, XMM11S, XMM12S, XMM13S, XMM14S, XMM15S}
+	case LIRTypeVector16D:
+		// ditto
+		return []Register{XMM0D, XMM1D, XMM2D, XMM3D, XMM4D, XMM5D, XMM6D, XMM7D, XMM8D, XMM9D, XMM10D, XMM11D, XMM12D, XMM13D, XMM14D, XMM15D}
 	default:
 		utils.ShouldNotReachHere()
 	}
@@ -202,9 +208,6 @@ func CalleeSaveRegs(t *LIRType) []Register {
 }
 
 // Calling Convention
-// User-level applications use as integer registers for passing the sequence %rdi, %rsi,
-// %rdx, %rcx, %r8 and %r9. The kernel interface uses %rdi, %rsi, %rdx, %r10, %r8 and
-// %r9.
 func ArgReg(idx int, t *LIRType) Register {
 	var argReg64, argReg32, argReg16, argReg8 []Register
 	if runtime.GOOS == "windows" {
@@ -236,6 +239,10 @@ func ArgReg(idx int, t *LIRType) Register {
 		return argReg16[idx]
 	case LIRTypeByte:
 		return argReg8[idx]
+	case LIRTypeVector16S:
+		return []Register{XMM0S, XMM1S, XMM2S, XMM3S, XMM4S, XMM5S, XMM6S, XMM7S}[idx]
+	case LIRTypeVector16D:
+		return []Register{XMM0D, XMM1D, XMM2D, XMM3D, XMM4D, XMM5D, XMM6D, XMM7D}[idx]
 	default:
 		utils.ShouldNotReachHere()
 	}

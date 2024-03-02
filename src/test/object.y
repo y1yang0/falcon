@@ -1,8 +1,7 @@
 package main
 	func main(){
-		let j=0
-		for i=0;i<100;i+=1{
-			j=2*i
-		}
-		cprint(j)
+		let a=3.14
+		let b =4.1
+		let c = a*b
+		cprint_double(c)
 	}

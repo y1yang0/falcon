@@ -18,6 +18,7 @@ import (
 	"falcon/compile/ssa"
 	"falcon/utils"
 	"fmt"
+	"math"
 )
 
 // == Code conjured by yyang, Feb, 2024 ==
@@ -270,9 +271,13 @@ func (lir *LIR) lowerConst(val *ssa.Value) {
 		res := lir.NewVReg(val)
 		lir.NewInstr(val.Block.Id, LIR_Mov, res, r, res).comment(val)
 		lir.SetResult(val, res)
+	case t.IsFloat():
+		utils.Unimplement()
 	case t.IsDouble():
-		imm := lir.NewText(fmt.Sprintf("%f", val.Sym.(float64)), TextFloat)
-		addr := lir.NewAddr(LIRTypeQWord, RIP, NoReg, imm)
+		hex := fmt.Sprintf("%x", math.Float64bits(val.Sym.(float64)))
+		text := lir.NewText(fmt.Sprintf("0x%s", hex), TextFloat)
+		// Load double literal from rodata
+		addr := lir.NewAddr(LIRTypeVector16D, RIP, NoReg, text)
 		res := lir.NewVReg(val)
 		lir.NewInstr(val.Block.Id, LIR_Mov, res, addr, res).comment(val)
 		lir.SetResult(val, res)

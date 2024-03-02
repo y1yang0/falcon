@@ -26,6 +26,50 @@ type Assembler struct {
 	stackOffset int
 	v2offset    map[int]int
 	funcIndex   int
+
+	scalarScratch []Register
+	floatScratch  Register
+	doubleScratch Register
+}
+
+func NewAssembler() *Assembler {
+	asm := &Assembler{
+		buf:         "",
+		stackOffset: -16,
+		v2offset:    make(map[int]int),
+		funcIndex:   0,
+	}
+	// Since we don't have register allocation, all virtual registers are actually
+	// a stack slot, i.e. a memory location, so we need to move from memory to
+	// temporary register and then to destination register. Here we use the caller
+	// save register r10/x0015. You might to ask what's the rationale behind this. No
+	// rationale:) I just picked one. It's not important, you can pick any register
+	// you like, as long as it's not used by the code you're generating. The only
+	// requirement is that it's a caller save register, because we don't know if
+	// the value in the register is still needed after the function call.
+	asm.scalarScratch = []Register{R10, R10D, R10W, R10B}
+	asm.floatScratch = XMM15S
+	asm.doubleScratch = XMM15D
+	return asm
+}
+
+func (asm *Assembler) GetScratchReg(t *LIRType) Register {
+	switch t {
+	case LIRTypeByte, LIRTypeWord, LIRTypeDWord, LIRTypeQWord:
+		for _, reg := range asm.scalarScratch {
+			if reg.Type.Width == t.Width {
+				return reg
+			}
+		}
+		return BadReg
+	case LIRTypeVector16S:
+		return asm.floatScratch
+	case LIRTypeVector16D:
+		return asm.doubleScratch
+	default:
+		utils.Unimplement()
+	}
+	return NoReg
 }
 
 func (asm *Assembler) comment(comment string) {
@@ -47,6 +91,10 @@ func (asm *Assembler) suffix(t *LIRType) string {
 		return "l"
 	case LIRTypeQWord:
 		return "q"
+	case LIRTypeVector16S:
+		return "ss"
+	case LIRTypeVector16D:
+		return "sd"
 	default:
 		utils.Unimplement()
 	}
@@ -102,7 +150,11 @@ func (asm *Assembler) operand(operand IOperand) string {
 		// Since base and index are both virtual register, we need to pre-allocate
 		// stack slot before we can use them as operand
 		freeRegs := CallerSaveRegs(LIRTypeQWord)
-		baseReg := asm.loadToReg(v.Base, freeRegs[0])
+		baseReg := v.Base
+		if baseReg.Virtual {
+			// Load base register to a scratch register
+			baseReg = asm.loadToReg(v.Base, freeRegs[0])
+		}
 		// No index register
 		if v.Index == NoReg {
 			return fmt.Sprintf("%s(%%%s)", asm.operand(v.Disp), baseReg)
@@ -130,8 +182,17 @@ func (asm *Assembler) operand(operand IOperand) string {
 		// Symbol is un-manglable
 		return v.Name
 	case Text:
-		// Text is immediate by referenced by label
-		return fmt.Sprintf("$.T_%d", v.Id)
+		if v.Kind == TextString {
+			// Text is immediate by referenced by label
+			return fmt.Sprintf("$.T_%d", v.Id)
+		} else if v.Kind == TextFloat {
+			// .T_0:
+			//   ..quad 0x12345
+			// movsd .T_0(%rip), %xmm0
+			return fmt.Sprintf(".T_%d", v.Id)
+		} else {
+			utils.ShouldNotReachHere()
+		}
 	default:
 		utils.ShouldNotReachHere()
 	}
@@ -146,10 +207,9 @@ func (asm *Assembler) loadToScratchReg(src IOperand) IOperand {
 			return s
 		}
 		// Virtual register or memory address, candidate for load
-		srcType := src.(ITypedOperand).GetType()
-		// Pick a scratch register
-		scratchRegs := ScratchRegs(srcType)
-		scratch0 := scratchRegs[0]
+		srcType := src.GetType()
+		// Pick the scratch register
+		scratch0 := asm.GetScratchReg(srcType)
 		source := asm.operand(src)
 		// Move src to scratch register
 		asm.buf += fmt.Sprintf("  mov%s %s, %s\n",
@@ -178,10 +238,11 @@ func (asm *Assembler) emit0(mnemonic string) {
 
 // emit1 emits an instruction with one operand
 func (asm *Assembler) emit1(mnemonic string, dst IOperand) {
-	if dstType, ok := dst.(ITypedOperand); ok {
+	dstType := dst.GetType()
+	if dstType.IsValid() {
 		// if dst is typed operand, deduce suffix from it
 		asm.buf += fmt.Sprintf("  %s%s %s\n",
-			mnemonic, asm.suffix(dstType.GetType()), asm.operand(dst))
+			mnemonic, asm.suffix(dstType), asm.operand(dst))
 	} else {
 		// otherwise, deduce suffix by GCC assembler automtically
 		asm.buf += fmt.Sprintf("  %s %s\n", mnemonic, asm.operand(dst))
@@ -190,12 +251,7 @@ func (asm *Assembler) emit1(mnemonic string, dst IOperand) {
 
 // emit2 emits an instruction with two operands
 func (asm *Assembler) emit2(mnemonic string, src IOperand, dst IOperand) {
-	dstType := dst.(ITypedOperand).GetType()
-	// Since we don't have register allocation, all virtual registers are actually
-	// a stack slot, i.e. a memory location, so we need to move from memory to
-	// temporary register and then to destination register. Here we use the caller
-	// save register r11/r10. You might to ask what's the rationale behind this. No
-	// rationale:) I just picked one.
+	dstType := dst.GetType()
 	// Try to load source to scratch register if possible
 	srcReg := asm.loadToScratchReg(src)
 	if srcReg, isReg := srcReg.(Register); isReg {
@@ -264,6 +320,8 @@ func (asm *Assembler) pop(src IOperand) {
 }
 
 func (asm *Assembler) mov(src IOperand, dst IOperand) {
+	// Suffix of "mov" can not be deduced by destination operand, so we need to
+	// take over the responsibility of deducing suffix here
 	asm.emit2("mov", src, dst)
 }
 
@@ -298,7 +356,7 @@ func (asm *Assembler) cmp(res IOperand, src IOperand, dst IOperand, op LIROp) {
 	asm.emit2("cmp", src, dst)
 	if res != src && res != dst {
 		// Result of cmp is set and might be used later, so we need to save it
-		freeRegs := CallerSaveRegs(res.(ITypedOperand).GetType())
+		freeRegs := CallerSaveRegs(res.GetType())
 		asm.setcc(AL, op)
 		if freeRegs[0].GetType().Width != 1 {
 			asm.movzx(AL, freeRegs[0])
@@ -311,7 +369,7 @@ func (asm *Assembler) cmp(res IOperand, src IOperand, dst IOperand, op LIROp) {
 func (asm *Assembler) movzx(src IOperand, dst IOperand) {
 	// AT&T syntax splits the movzx Intel instruction mnemonic into different
 	// mnemonics for different source sizes
-	srcType := src.(ITypedOperand).GetType()
+	srcType := src.GetType()
 	switch srcType {
 	case LIRTypeByte:
 		asm.emit2("movzb", src, dst)
@@ -386,10 +444,22 @@ func (asm *Assembler) sub(src IOperand, dst IOperand) {
 	asm.emit2("sub", src, dst)
 }
 
-// Signed full multiply of %rax by S
-// Result stored in %rdx:%rax
 func (asm *Assembler) mul(src IOperand, dst IOperand) {
-	asm.emit2("imul", src, dst)
+	srcType := src.GetType()
+	if !srcType.IsValid() {
+		utils.ShouldNotReachHere()
+	}
+	// FIXME: Unify this
+	if srcType == LIRTypeVector16D {
+		// mulsd
+		asm.emit2("mul", src, dst)
+	} else if srcType == LIRTypeVector16S {
+		utils.Unimplement()
+	} else {
+		// Signed full multiply of %rax by S
+		// Result stored in %rdx:%rax
+		asm.emit2("imul", src, dst)
+	}
 }
 
 // Signed divide %rdx:%rax by S
@@ -406,7 +476,7 @@ func (asm *Assembler) div(src IOperand) {
 	// cqo — sign-extend quad in %rax to octuple in %rdx:%rax (x86-64 only),
 	// are called cbtw, cwtl, cwtd, cltd, cltq, and cqto in AT&T naming. as
 	// accepts either naming for these instructions.
-	sourceType := src.(ITypedOperand).GetType()
+	sourceType := src.GetType()
 	switch sourceType {
 	case LIRTypeWord:
 		asm.emit0("cwtd")
@@ -497,12 +567,7 @@ func (asm *Assembler) emit(instr *Instruction) {
 // have register allocation, so we use stack slot as virtual register. Also we
 // have to use many temporary registers to construct x86 addressing mode.
 func CodeGen(lirs []*LIR, debug bool) string {
-	asm := &Assembler{
-		buf:         "",
-		stackOffset: -16,
-		v2offset:    make(map[int]int),
-		funcIndex:   0,
-	}
+	asm := NewAssembler()
 	for i, lir := range lirs {
 		// reset assembler before each function
 		asm.stackOffset = -16

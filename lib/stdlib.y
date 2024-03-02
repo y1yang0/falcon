@@ -13,6 +13,7 @@ func cprint(a int)
 func cprint_long(a long)
 func cprint_bool(a bool)
 func cprint_char(a char)
+func cprint_double(a double)
 func cprint_arr(arr []int, len int)
 func cprint_string(s string)
 

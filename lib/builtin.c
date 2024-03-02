@@ -109,3 +109,7 @@ void rt_cprint_string(ystring* str){
     }
     printf("\n");
 }
+
+void rt_cprint_double(ydouble d){
+    printf("%lf\n", d);
+}

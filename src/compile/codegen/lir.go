@@ -91,24 +91,27 @@ type LIR struct {
 type LIRTypeKind int
 
 type LIRType struct {
-	Width int // in bytes
+	Width           int // in bytes
+	SinglePrecision bool
 }
 
-var LIRTypeVoid = &LIRType{0}      // 0 byte, void
-var LIRTypeByte = &LIRType{1}      // 1 byte, char, al/ah
-var LIRTypeWord = &LIRType{2}      // 2 bytes, short, ax
-var LIRTypeDWord = &LIRType{4}     // 4 bytes, int, eax
-var LIRTypeQWord = &LIRType{8}     // 8 bytes, long, rax
-var LIRTypeVector16 = &LIRType{16} // 16 bytes
-var LIRTypeVector32 = &LIRType{32} // 32 bytes
-var LIRTypeVector64 = &LIRType{64} // 64 bytes
+var LIRTypeBottom = &LIRType{-1, false}    // not even a type
+var LIRTypeVoid = &LIRType{0, false}       // 0 byte, void
+var LIRTypeByte = &LIRType{1, false}       // 1 byte, char, al/ah
+var LIRTypeWord = &LIRType{2, false}       // 2 bytes, short, ax
+var LIRTypeDWord = &LIRType{4, false}      // 4 bytes, int, eax
+var LIRTypeQWord = &LIRType{8, false}      // 8 bytes, long, rax
+var LIRTypeVector16S = &LIRType{16, false} // 16 bytes, single-precision float
+var LIRTypeVector16D = &LIRType{16, true}  // 16 bytes, double-precision float
+var LIRTypeVector32 = &LIRType{32, false}  // 32 bytes
+var LIRTypeVector64 = &LIRType{64, false}  // 64 bytes
+
+func (x *LIRType) IsValid() bool {
+	return x != LIRTypeBottom
+}
 
 type IOperand interface {
 	String() string
-}
-
-type ITypedOperand interface {
-	IOperand
 	GetType() *LIRType
 }
 
@@ -164,17 +167,19 @@ type Addr struct {
 	Disp  IOperand // int or Symbol, e.g. 8(%rbp) or .quad_0(%rbp, %rax, 8)
 }
 
-func (x Register) GetType() *LIRType {
-	return x.Type
-}
+func (x Register) GetType() *LIRType { return x.Type }
 
-func (x Addr) GetType() *LIRType {
-	return x.Type
-}
+func (x Addr) GetType() *LIRType { return x.Type }
 
-func (x Imm) GetType() *LIRType {
-	return x.Type
-}
+func (x Imm) GetType() *LIRType { return x.Type }
+
+func (x Offset) GetType() *LIRType { return LIRTypeBottom }
+
+func (x Label) GetType() *LIRType { return LIRTypeBottom }
+
+func (x Symbol) GetType() *LIRType { return LIRTypeBottom }
+
+func (x Text) GetType() *LIRType { return LIRTypeBottom }
 
 // GetLIRType returns the LIRType for the given AST type
 func GetLIRType(astType *ast.Type) *LIRType {
@@ -193,6 +198,10 @@ func GetLIRType(astType *ast.Type) *LIRType {
 		return LIRTypeQWord
 	case astType.IsArray():
 		return LIRTypeQWord
+	case astType.IsFloat():
+		return LIRTypeVector16S
+	case astType.IsDouble():
+		return LIRTypeVector16D
 	default:
 		utils.Unimplement()
 	}

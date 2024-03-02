@@ -36,4 +36,5 @@ This file is used to record the todo list of Falcon.
 - [ ] Object allocation
 - [ ] Garbage collection support
 - [ ] Fully featured `array` and `string` types
+- [ ] Arbitrary arguments counts for functions
 
