@@ -1014,6 +1014,10 @@ func TestArithmeticAndAssign(t *testing.T) {
 		assert(p,1)
 		p%=1
 		assert(p,0)
+		p++
+		assert(p,1)
+		p--
+		assert(p,0)
 	}
 	`
 	ExecExpect(source)

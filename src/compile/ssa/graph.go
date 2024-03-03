@@ -806,6 +806,32 @@ func (g *GraphBuilder) buildReturnStmt(node *ast.ReturnStmt) {
 	block.ResetTo(BlockReturn, val)
 }
 
+func (g *GraphBuilder) buildIncDecStmt(node *ast.IncDecStmt) {
+	block := g.getControl()
+	op := OpAdd
+	if node.Opt == ast.TK_DECREMENT {
+		op = OpSub
+	}
+	right := block.NewValue(OpConst, node.Var.GetType())
+	var sym interface{}
+	switch node.Var.GetType().Kind {
+	case ast.TypeInt:
+		sym = int(1)
+	case ast.TypeShort:
+		sym = int16(1)
+	case ast.TypeLong:
+		sym = int64(1)
+	case ast.TypeDouble:
+		sym = float64(1)
+	default:
+		utils.Unimplement()
+	}
+	right.Sym = sym
+	left := g.lookupVar(node.Var.Name, block)
+	val := block.NewValue(op, left.Type, left, right)
+	g.names[block][node.Var.Name] = val
+}
+
 func (g *GraphBuilder) build(n ast.AstNode) *Value {
 	if g.isStopControl() {
 		return nil
@@ -836,6 +862,8 @@ func (g *GraphBuilder) build(n ast.AstNode) *Value {
 		g.buildBreakStmt(n)
 	case *ast.ContinueStmt:
 		g.buildContinueStmt(n)
+	case *ast.IncDecStmt:
+		g.buildIncDecStmt(n)
 
 	case *ast.UnaryExpr:
 		return g.buildUnaryExpr(n)

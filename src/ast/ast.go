@@ -149,16 +149,6 @@ type FuncCallExpr struct {
 	Args []AstExpr
 }
 
-type IncExpr struct {
-	Expr
-	Left AstExpr
-}
-
-type DecExpr struct {
-	Expr
-	Left AstExpr
-}
-
 func (e *Expr) String() string { return fmt.Sprintf("Expr{%v}", e.Type) }
 
 func (e *Expr) GetType() *Type { return e.Type }
@@ -201,10 +191,6 @@ func (b *ByteExpr) String() string { return fmt.Sprintf("ByteExpr{%vB}", b.Value
 func (v *VoidExpr) String() string { return fmt.Sprintf("VoidExpr") }
 
 func (s *StrExpr) String() string { return fmt.Sprintf("StrExpr{\"%s\"}", s.Value) }
-
-func (i *IncExpr) String() string { return fmt.Sprintf("IncExpr") }
-
-func (d *DecExpr) String() string { return fmt.Sprintf("DecExpr") }
 
 // -----------------------------------------------------------------------------
 // Statements
@@ -259,6 +245,11 @@ type PackageStmt struct {
 	Name string
 }
 
+type IncDecStmt struct {
+	Var *VarExpr
+	Opt TokenKind
+}
+
 func (f *ForStmt) String() string { return fmt.Sprintf("ForStmt") }
 
 func (w *WhileStmt) String() string { return fmt.Sprintf("WhileStmt") }
@@ -280,6 +271,10 @@ func (s *LetStmt) String() string { return fmt.Sprintf("LetStmt") }
 func (s *IfStmt) String() string { return fmt.Sprintf("IfStmt") }
 
 func (s *PackageStmt) String() string { return fmt.Sprintf("PackageStmt") }
+
+func (s *IncDecStmt) String() string {
+	return fmt.Sprintf("IncDecStmt")
+}
 
 // -----------------------------------------------------------------------------
 // Declarations
@@ -713,6 +708,8 @@ func (walker *AstWalker) WalkAst(node AstNode, prev AstNode, depth int) {
 		walker.WalkAst(v.Body, v, depth+1)
 	case *PackageStmt:
 		// Do nothing
+	case *IncDecStmt:
+		walker.WalkAst(v.Var, v, depth+1)
 
 	case *UnaryExpr:
 		walker.WalkAst(v.Left, v, depth+1)

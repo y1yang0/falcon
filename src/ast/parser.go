@@ -24,9 +24,11 @@ import (
 )
 
 type Parser struct {
-	token  TokenKind
-	lexeme string
-	lexer  *Lexer
+	token      TokenKind
+	lexeme     string
+	nextToken  TokenKind
+	nextLexeme string
+	lexer      *Lexer
 }
 
 func syntaxError(format string, args ...interface{}) {
@@ -40,8 +42,19 @@ func (p *Parser) guarantee(cond bool, fmt string, args ...interface{}) {
 	}
 }
 
+func (p *Parser) lookNext() {
+	p.nextToken, p.nextLexeme = p.lexer.NextToken()
+}
+
 func (p *Parser) consume() {
-	p.token, p.lexeme = p.lexer.NextToken()
+	if p.nextToken != INVALID {
+		p.token, p.lexeme = p.nextToken, p.nextLexeme
+		p.nextToken = INVALID
+		p.nextLexeme = ""
+
+	} else {
+		p.token, p.lexeme = p.lexer.NextToken()
+	}
 }
 
 func (p *Parser) parseParams() []AstExpr {
@@ -175,6 +188,9 @@ func (p *Parser) parseStatement() AstStmt {
 	case KW_PACKAGE:
 		return p.parsePackageStmt()
 	default:
+		if elem := p.parseIncDecStmt(); elem != nil {
+			return elem
+		}
 		return p.parseSimpleStmt()
 	}
 }
@@ -225,6 +241,20 @@ func (p *Parser) parseReturnStmt() AstStmt {
 	elem := &ReturnStmt{}
 	elem.Expr = p.parseExpression()
 	return elem
+}
+
+func (p *Parser) parseIncDecStmt() AstStmt {
+	if p.token == TK_IDENT {
+		p.lookNext()
+		if p.nextToken == TK_INCREMENT || p.nextToken == TK_DECREMENT {
+			val := &VarExpr{Name: p.lexeme}
+			elem := &IncDecStmt{Var: val, Opt: p.nextToken}
+			p.consume() // consume ident
+			p.consume() // consume ++
+			return elem
+		}
+	}
+	return nil
 }
 
 func (p *Parser) parseSimpleStmt() AstStmt {
