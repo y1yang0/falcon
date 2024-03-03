@@ -272,9 +272,7 @@ func (s *IfStmt) String() string { return fmt.Sprintf("IfStmt") }
 
 func (s *PackageStmt) String() string { return fmt.Sprintf("PackageStmt") }
 
-func (s *IncDecStmt) String() string {
-	return fmt.Sprintf("IncDecStmt")
-}
+func (s *IncDecStmt) String() string { return fmt.Sprintf("IncDecStmt") }
 
 // -----------------------------------------------------------------------------
 // Declarations

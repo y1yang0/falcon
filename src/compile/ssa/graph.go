@@ -48,7 +48,7 @@ type GraphBuilder struct {
 	scopes []*BlockScope
 }
 
-// LoopScope is used to construct loop form and related control flow alterations
+// BlockScope is used to construct loop form and related control flow alterations
 type BlockScope struct {
 	exit *Block
 	post *Block

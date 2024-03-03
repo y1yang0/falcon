@@ -215,10 +215,6 @@ func (lexer *Lexer) NextToken() (TokenKind, string) {
 			lexer.next()
 			return TK_INCREMENT, "++"
 		}
-		if lexer.peek() == '+' {
-			c = lexer.next()
-			return TK_INCREMENT, "++"
-		}
 		return TK_PLUS, "+"
 	case '-':
 		if lexer.peek() == '=' {
@@ -226,10 +222,6 @@ func (lexer *Lexer) NextToken() (TokenKind, string) {
 			return TK_MINUS_AGN, "-="
 		} else if lexer.peek() == '-' {
 			lexer.next()
-			return TK_DECREMENT, "--"
-		}
-		if lexer.peek() == '-' {
-			c = lexer.next()
 			return TK_DECREMENT, "--"
 		}
 		return TK_MINUS, "-"

@@ -63,7 +63,6 @@ func (lp *Loop) IsNormal() bool {
 	// A loop is normal if its header determins whether to continue the loop
 	// i.e. it has only one successor
 	if !lp.IsRotated() {
-		utils.Assert(len(lp.Header.Succs) > 1, "more than one successor")
 		return true
 	}
 	return false
