@@ -35,7 +35,7 @@ type Assembler struct {
 func NewAssembler() *Assembler {
 	asm := &Assembler{
 		buf:         "",
-		stackOffset: -16,
+		stackOffset: -8,
 		v2offset:    make(map[int]int),
 		funcIndex:   0,
 	}
@@ -76,11 +76,31 @@ func (asm *Assembler) comment(comment string) {
 	asm.buf += fmt.Sprintf("  # %s\n", comment)
 }
 
-// Instruction suffixes
+// For integer instructions, suffix is used to specify the width of the operand
 // b byte
 // w word (2 bytes)
 // l long /doubleword (4 bytes)
 // q quadword (8 bytes)
+//
+// For SSE/AVX instructions, there involes more suffixes. For example, we have
+// 128bits XMM registers, and we can use them to store 4 single precision floating
+// or 2 double precision floating point numbers
+//
+// [ 32bits ][ 32bits ][ 32bits ][ 32bits ] xmm0
+// [ 32bits ][ 32bits ][ 32bits ][ 32bits ] xmm1
+// [ 64bits ][ 64bits ] xmm0
+// [ 64bits ][ 64bits ] xmm1
+//
+// ss suffix is used for scalar single precision floating point, all related
+// instructions operates on the lower 32 bits of the register, the upper 96 bits
+// are ignored.
+// sd suffix is used for scalar double precision floating point, all related
+// instructions operates on the lower 64 bits of the register, the upper 64 bits
+// are ignored.
+// ps suffix is used for packed single precision floating point, all related
+// instructions operates each pair of 32 bits in the register.
+// pd suffix is used for packed double precision floating point, all related
+// instructions operates each 64 bits in the register.
 func (asm *Assembler) suffix(t *LIRType) string {
 	switch t {
 	case LIRTypeByte:
@@ -599,6 +619,8 @@ func CodeGen(lirs []*LIR, debug bool) string {
 		// Fixup frame size until all code was generated, we can not fix in
 		// emitEpilogue because there are many ret instructions
 		frameSize := utils.Abs(asm.stackOffset)
+		// Align with 16 bytes
+		frameSize = utils.Align16(frameSize)
 		asm.patchSymbol(FrameSize, lir.NewImm(frameSize))
 
 		// Print "register allocation" result for values
