@@ -48,7 +48,7 @@ type GraphBuilder struct {
 	scopes []*BlockScope
 }
 
-// LoopScope is used to construct loop form and related control flow alterations
+// BlockScope is used to construct loop form and related control flow alterations
 type BlockScope struct {
 	exit *Block
 	post *Block
@@ -407,8 +407,7 @@ func (g *GraphBuilder) buildUnaryExpr(node *ast.UnaryExpr) *Value {
 		}
 		ssaOp, exist := token2ssaOp[node.Opt]
 		utils.Assert(exist, "unimplement %v", node.Opt.String())
-		zero := &ast.IntExpr{Value: 0}
-		zero.SetType(ast.TInt)
+		zero := ast.CreateDefaultConst(node.Left.GetType())
 		left := g.buildConst(zero)
 		right := g.build(node.Left)
 		block := g.getControl()

@@ -1,7 +1,11 @@
-package main
-	func main(){
-		let a=3.14
-		let b =4.1
-		let c = a*b
-		cprint_double(c)
-	}
+func sqrtNewton(x double, epsilon double) double {
+    let guess = x / 2.0
+    while ((guess * guess - x) >= epsilon) || ((guess * guess - x) <= -epsilon) {
+        guess = guess - (guess*guess-x)/(2.0*guess)
+    }
+    return guess
+}
+
+func main(){
+	cprint_double(sqrtNewton(2.0, 0.0000001))
+}

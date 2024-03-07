@@ -352,6 +352,36 @@ func (block *Block) RemoveSucc(succ *Block) bool {
 	return false
 }
 
+func (block *Block) ReplaceSucc(old, new *Block) bool {
+	for idx, s := range block.Succs {
+		if s == old {
+			block.Succs[idx] = new
+			return true
+		}
+	}
+	return false
+}
+
+func (block *Block) ReplacePred(old, new *Block) bool {
+	for idx, p := range block.Preds {
+		if p == old {
+			block.Preds[idx] = new
+			return true
+		}
+	}
+	return false
+}
+
+func (block *Block) InsertBetween(pred, succ *Block) {
+	// Redirect pred to block and block to succ
+	pred.ReplaceSucc(succ, block)
+	succ.ReplacePred(pred, block)
+	// Wire edges manually
+	// Dont use WireTo here, it will add duplicate edges
+	block.Preds = append(block.Preds, pred)
+	block.Succs = append(block.Succs, succ)
+}
+
 func (block *Block) RemovePred(pred *Block) bool {
 	for idx, p := range block.Preds {
 		if p == pred {

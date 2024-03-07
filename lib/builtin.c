@@ -16,6 +16,7 @@
 
 #include "falcon.h"
 #include <stdio.h>
+#include <math.h>
 
 // -----------------------------------------------------------------------------
 // Standard Library Native Functions
@@ -78,6 +79,14 @@ void rt_assert_string(ystring* a, ystring* b){
             printf("Assertion failed: %c != %c\n", a->data[i], b->data[i]);
             exit(1);
         }
+    }
+}
+
+void rt_assert_double(ydouble a, ydouble b){
+    ydouble epsilon = 0.000001; // close enough
+    if(fabs(a - b) > epsilon){
+        printf("Assertion failed: %lf != %lf\n", a, b);
+        exit(1);
     }
 }
 

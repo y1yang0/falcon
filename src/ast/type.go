@@ -227,13 +227,6 @@ func (infer *Infer) resolveType(opt TokenKind, left, right interface{}) *Type {
 	if lt == TString || rt == TString {
 		return TString
 	}
-
-	if lt == TDouble || rt == TDouble {
-		return TDouble
-	}
-	if lt == TLong || rt == TLong {
-		return TLong
-	}
 	return rt
 }
 

@@ -8,6 +8,7 @@ func assert_short(a short, b short)
 func assert_bool(a bool, b bool)
 func assert_char(a char, b char)
 func assert_string(a string, b string)
+func assert_double(a double, b double)
 
 func cprint(a int)
 func cprint_long(a long)

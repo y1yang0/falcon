@@ -104,6 +104,7 @@ int entrypoint(int argc, char** argv) {
         printf("++entrypoint\n");
     }
     runtime_init();
+    __asm__("andq $-16, %rsp"); // Align stack to 16 bytes to follow the ABI
     __asm__("call main");
     exit(0);
 }

@@ -33,81 +33,81 @@ var (
 	BadReg = Register{Index: -1, Virtual: false, Name: "badreg", Type: LIRTypeVoid}
 	NoReg  = Register{Index: -1, Virtual: false, Name: "noreg", Type: LIRTypeVoid}
 	// 64-bit registers
-	RAX = Register{Index: -1, Virtual: false, Name: "rax", Type: LIRTypeQWord}
-	RBX = Register{Index: -1, Virtual: false, Name: "rbx", Type: LIRTypeQWord}
-	RCX = Register{Index: -1, Virtual: false, Name: "rcx", Type: LIRTypeQWord}
-	RDX = Register{Index: -1, Virtual: false, Name: "rdx", Type: LIRTypeQWord}
-	RSI = Register{Index: -1, Virtual: false, Name: "rsi", Type: LIRTypeQWord}
-	RDI = Register{Index: -1, Virtual: false, Name: "rdi", Type: LIRTypeQWord}
-	RSP = Register{Index: -1, Virtual: false, Name: "rsp", Type: LIRTypeQWord}
-	RBP = Register{Index: -1, Virtual: false, Name: "rbp", Type: LIRTypeQWord}
-	R8  = Register{Index: -1, Virtual: false, Name: "r8", Type: LIRTypeQWord}
-	R9  = Register{Index: -1, Virtual: false, Name: "r9", Type: LIRTypeQWord}
-	R10 = Register{Index: -1, Virtual: false, Name: "r10", Type: LIRTypeQWord}
-	R11 = Register{Index: -1, Virtual: false, Name: "r11", Type: LIRTypeQWord}
-	R12 = Register{Index: -1, Virtual: false, Name: "r12", Type: LIRTypeQWord}
-	R13 = Register{Index: -1, Virtual: false, Name: "r13", Type: LIRTypeQWord}
-	R14 = Register{Index: -1, Virtual: false, Name: "r14", Type: LIRTypeQWord}
-	R15 = Register{Index: -1, Virtual: false, Name: "r15", Type: LIRTypeQWord}
-	RIP = Register{Index: -1, Virtual: false, Name: "rip", Type: LIRTypeQWord}
+	RAX = Register{Index: -1, Virtual: false, Name: "rax", Type: LIRTypeQWord, Affinity: 0}
+	RBX = Register{Index: -1, Virtual: false, Name: "rbx", Type: LIRTypeQWord, Affinity: 1}
+	RCX = Register{Index: -1, Virtual: false, Name: "rcx", Type: LIRTypeQWord, Affinity: 2}
+	RDX = Register{Index: -1, Virtual: false, Name: "rdx", Type: LIRTypeQWord, Affinity: 3}
+	RSI = Register{Index: -1, Virtual: false, Name: "rsi", Type: LIRTypeQWord, Affinity: 4}
+	RDI = Register{Index: -1, Virtual: false, Name: "rdi", Type: LIRTypeQWord, Affinity: 5}
+	RSP = Register{Index: -1, Virtual: false, Name: "rsp", Type: LIRTypeQWord, Affinity: 6}
+	RBP = Register{Index: -1, Virtual: false, Name: "rbp", Type: LIRTypeQWord, Affinity: 7}
+	R8  = Register{Index: -1, Virtual: false, Name: "r8", Type: LIRTypeQWord, Affinity: 8}
+	R9  = Register{Index: -1, Virtual: false, Name: "r9", Type: LIRTypeQWord, Affinity: 9}
+	R10 = Register{Index: -1, Virtual: false, Name: "r10", Type: LIRTypeQWord, Affinity: 10}
+	R11 = Register{Index: -1, Virtual: false, Name: "r11", Type: LIRTypeQWord, Affinity: 11}
+	R12 = Register{Index: -1, Virtual: false, Name: "r12", Type: LIRTypeQWord, Affinity: 12}
+	R13 = Register{Index: -1, Virtual: false, Name: "r13", Type: LIRTypeQWord, Affinity: 13}
+	R14 = Register{Index: -1, Virtual: false, Name: "r14", Type: LIRTypeQWord, Affinity: 14}
+	R15 = Register{Index: -1, Virtual: false, Name: "r15", Type: LIRTypeQWord, Affinity: 15}
+	RIP = Register{Index: -1, Virtual: false, Name: "rip", Type: LIRTypeQWord, Affinity: 16}
 
 	// 32-bit registers
-	EAX  = Register{Index: -1, Virtual: false, Name: "eax", Type: LIRTypeDWord}
-	EBX  = Register{Index: -1, Virtual: false, Name: "ebx", Type: LIRTypeDWord}
-	ECX  = Register{Index: -1, Virtual: false, Name: "ecx", Type: LIRTypeDWord}
-	EDX  = Register{Index: -1, Virtual: false, Name: "edx", Type: LIRTypeDWord}
-	ESI  = Register{Index: -1, Virtual: false, Name: "esi", Type: LIRTypeDWord}
-	EDI  = Register{Index: -1, Virtual: false, Name: "edi", Type: LIRTypeDWord}
-	ESP  = Register{Index: -1, Virtual: false, Name: "esp", Type: LIRTypeDWord}
-	EBP  = Register{Index: -1, Virtual: false, Name: "ebp", Type: LIRTypeDWord}
-	R8D  = Register{Index: -1, Virtual: false, Name: "r8d", Type: LIRTypeDWord}
-	R9D  = Register{Index: -1, Virtual: false, Name: "r9d", Type: LIRTypeDWord}
-	R10D = Register{Index: -1, Virtual: false, Name: "r10d", Type: LIRTypeDWord}
-	R11D = Register{Index: -1, Virtual: false, Name: "r11d", Type: LIRTypeDWord}
-	R12D = Register{Index: -1, Virtual: false, Name: "r12d", Type: LIRTypeDWord}
-	R13D = Register{Index: -1, Virtual: false, Name: "r13d", Type: LIRTypeDWord}
-	R14D = Register{Index: -1, Virtual: false, Name: "r14d", Type: LIRTypeDWord}
-	R15D = Register{Index: -1, Virtual: false, Name: "r15d", Type: LIRTypeDWord}
+	EAX  = Register{Index: -1, Virtual: false, Name: "eax", Type: LIRTypeDWord, Affinity: 0}
+	EBX  = Register{Index: -1, Virtual: false, Name: "ebx", Type: LIRTypeDWord, Affinity: 1}
+	ECX  = Register{Index: -1, Virtual: false, Name: "ecx", Type: LIRTypeDWord, Affinity: 2}
+	EDX  = Register{Index: -1, Virtual: false, Name: "edx", Type: LIRTypeDWord, Affinity: 3}
+	ESI  = Register{Index: -1, Virtual: false, Name: "esi", Type: LIRTypeDWord, Affinity: 4}
+	EDI  = Register{Index: -1, Virtual: false, Name: "edi", Type: LIRTypeDWord, Affinity: 5}
+	ESP  = Register{Index: -1, Virtual: false, Name: "esp", Type: LIRTypeDWord, Affinity: 6}
+	EBP  = Register{Index: -1, Virtual: false, Name: "ebp", Type: LIRTypeDWord, Affinity: 7}
+	R8D  = Register{Index: -1, Virtual: false, Name: "r8d", Type: LIRTypeDWord, Affinity: 8}
+	R9D  = Register{Index: -1, Virtual: false, Name: "r9d", Type: LIRTypeDWord, Affinity: 9}
+	R10D = Register{Index: -1, Virtual: false, Name: "r10d", Type: LIRTypeDWord, Affinity: 10}
+	R11D = Register{Index: -1, Virtual: false, Name: "r11d", Type: LIRTypeDWord, Affinity: 11}
+	R12D = Register{Index: -1, Virtual: false, Name: "r12d", Type: LIRTypeDWord, Affinity: 12}
+	R13D = Register{Index: -1, Virtual: false, Name: "r13d", Type: LIRTypeDWord, Affinity: 13}
+	R14D = Register{Index: -1, Virtual: false, Name: "r14d", Type: LIRTypeDWord, Affinity: 14}
+	R15D = Register{Index: -1, Virtual: false, Name: "r15d", Type: LIRTypeDWord, Affinity: 15}
 
 	// 16-bit registers
-	AX   = Register{Index: -1, Virtual: false, Name: "ax", Type: LIRTypeWord}
-	BX   = Register{Index: -1, Virtual: false, Name: "bx", Type: LIRTypeWord}
-	CX   = Register{Index: -1, Virtual: false, Name: "cx", Type: LIRTypeWord}
-	DX   = Register{Index: -1, Virtual: false, Name: "dx", Type: LIRTypeWord}
-	SI   = Register{Index: -1, Virtual: false, Name: "si", Type: LIRTypeWord}
-	DI   = Register{Index: -1, Virtual: false, Name: "di", Type: LIRTypeWord}
-	SP   = Register{Index: -1, Virtual: false, Name: "sp", Type: LIRTypeWord}
-	BP   = Register{Index: -1, Virtual: false, Name: "bp", Type: LIRTypeWord}
-	R8W  = Register{Index: -1, Virtual: false, Name: "r8w", Type: LIRTypeWord}
-	R9W  = Register{Index: -1, Virtual: false, Name: "r9w", Type: LIRTypeWord}
-	R10W = Register{Index: -1, Virtual: false, Name: "r10w", Type: LIRTypeWord}
-	R11W = Register{Index: -1, Virtual: false, Name: "r11w", Type: LIRTypeWord}
-	R12W = Register{Index: -1, Virtual: false, Name: "r12w", Type: LIRTypeWord}
-	R13W = Register{Index: -1, Virtual: false, Name: "r13w", Type: LIRTypeWord}
-	R14W = Register{Index: -1, Virtual: false, Name: "r14w", Type: LIRTypeWord}
-	R15W = Register{Index: -1, Virtual: false, Name: "r15w", Type: LIRTypeWord}
+	AX   = Register{Index: -1, Virtual: false, Name: "ax", Type: LIRTypeWord, Affinity: 0}
+	BX   = Register{Index: -1, Virtual: false, Name: "bx", Type: LIRTypeWord, Affinity: 1}
+	CX   = Register{Index: -1, Virtual: false, Name: "cx", Type: LIRTypeWord, Affinity: 2}
+	DX   = Register{Index: -1, Virtual: false, Name: "dx", Type: LIRTypeWord, Affinity: 3}
+	SI   = Register{Index: -1, Virtual: false, Name: "si", Type: LIRTypeWord, Affinity: 4}
+	DI   = Register{Index: -1, Virtual: false, Name: "di", Type: LIRTypeWord, Affinity: 5}
+	SP   = Register{Index: -1, Virtual: false, Name: "sp", Type: LIRTypeWord, Affinity: 6}
+	BP   = Register{Index: -1, Virtual: false, Name: "bp", Type: LIRTypeWord, Affinity: 7}
+	R8W  = Register{Index: -1, Virtual: false, Name: "r8w", Type: LIRTypeWord, Affinity: 8}
+	R9W  = Register{Index: -1, Virtual: false, Name: "r9w", Type: LIRTypeWord, Affinity: 9}
+	R10W = Register{Index: -1, Virtual: false, Name: "r10w", Type: LIRTypeWord, Affinity: 10}
+	R11W = Register{Index: -1, Virtual: false, Name: "r11w", Type: LIRTypeWord, Affinity: 11}
+	R12W = Register{Index: -1, Virtual: false, Name: "r12w", Type: LIRTypeWord, Affinity: 12}
+	R13W = Register{Index: -1, Virtual: false, Name: "r13w", Type: LIRTypeWord, Affinity: 13}
+	R14W = Register{Index: -1, Virtual: false, Name: "r14w", Type: LIRTypeWord, Affinity: 14}
+	R15W = Register{Index: -1, Virtual: false, Name: "r15w", Type: LIRTypeWord, Affinity: 15}
 
 	// 8-bit registers
-	AH   = Register{Index: -1, Virtual: false, Name: "ah", Type: LIRTypeByte}
-	AL   = Register{Index: -1, Virtual: false, Name: "al", Type: LIRTypeByte}
-	BH   = Register{Index: -1, Virtual: false, Name: "bh", Type: LIRTypeByte}
-	BL   = Register{Index: -1, Virtual: false, Name: "bl", Type: LIRTypeByte}
-	CH   = Register{Index: -1, Virtual: false, Name: "ch", Type: LIRTypeByte}
-	CL   = Register{Index: -1, Virtual: false, Name: "cl", Type: LIRTypeByte}
-	DH   = Register{Index: -1, Virtual: false, Name: "dh", Type: LIRTypeByte}
-	DL   = Register{Index: -1, Virtual: false, Name: "dl", Type: LIRTypeByte}
-	SIL  = Register{Index: -1, Virtual: false, Name: "sil", Type: LIRTypeByte}
-	DIL  = Register{Index: -1, Virtual: false, Name: "dil", Type: LIRTypeByte}
-	BPL  = Register{Index: -1, Virtual: false, Name: "bpl", Type: LIRTypeByte}
-	SPL  = Register{Index: -1, Virtual: false, Name: "spl", Type: LIRTypeByte}
-	R8B  = Register{Index: -1, Virtual: false, Name: "r8b", Type: LIRTypeByte}
-	R9B  = Register{Index: -1, Virtual: false, Name: "r9b", Type: LIRTypeByte}
-	R10B = Register{Index: -1, Virtual: false, Name: "r10b", Type: LIRTypeByte}
-	R11B = Register{Index: -1, Virtual: false, Name: "r11b", Type: LIRTypeByte}
-	R12B = Register{Index: -1, Virtual: false, Name: "r12b", Type: LIRTypeByte}
-	R13B = Register{Index: -1, Virtual: false, Name: "r13b", Type: LIRTypeByte}
-	R14B = Register{Index: -1, Virtual: false, Name: "r14b", Type: LIRTypeByte}
-	R15B = Register{Index: -1, Virtual: false, Name: "r15b", Type: LIRTypeByte}
+	AH   = Register{Index: -1, Virtual: false, Name: "ah", Type: LIRTypeByte, Affinity: 0, IsHigh: true}
+	AL   = Register{Index: -1, Virtual: false, Name: "al", Type: LIRTypeByte, Affinity: 0}
+	BH   = Register{Index: -1, Virtual: false, Name: "bh", Type: LIRTypeByte, Affinity: 1, IsHigh: true}
+	BL   = Register{Index: -1, Virtual: false, Name: "bl", Type: LIRTypeByte, Affinity: 1}
+	CH   = Register{Index: -1, Virtual: false, Name: "ch", Type: LIRTypeByte, Affinity: 2, IsHigh: true}
+	CL   = Register{Index: -1, Virtual: false, Name: "cl", Type: LIRTypeByte, Affinity: 2}
+	DH   = Register{Index: -1, Virtual: false, Name: "dh", Type: LIRTypeByte, Affinity: 3, IsHigh: true}
+	DL   = Register{Index: -1, Virtual: false, Name: "dl", Type: LIRTypeByte, Affinity: 3}
+	SIL  = Register{Index: -1, Virtual: false, Name: "sil", Type: LIRTypeByte, Affinity: 4}
+	DIL  = Register{Index: -1, Virtual: false, Name: "dil", Type: LIRTypeByte, Affinity: 5}
+	BPL  = Register{Index: -1, Virtual: false, Name: "bpl", Type: LIRTypeByte, Affinity: 6}
+	SPL  = Register{Index: -1, Virtual: false, Name: "spl", Type: LIRTypeByte, Affinity: 7}
+	R8B  = Register{Index: -1, Virtual: false, Name: "r8b", Type: LIRTypeByte, Affinity: 8}
+	R9B  = Register{Index: -1, Virtual: false, Name: "r9b", Type: LIRTypeByte, Affinity: 9}
+	R10B = Register{Index: -1, Virtual: false, Name: "r10b", Type: LIRTypeByte, Affinity: 10}
+	R11B = Register{Index: -1, Virtual: false, Name: "r11b", Type: LIRTypeByte, Affinity: 11}
+	R12B = Register{Index: -1, Virtual: false, Name: "r12b", Type: LIRTypeByte, Affinity: 12}
+	R13B = Register{Index: -1, Virtual: false, Name: "r13b", Type: LIRTypeByte, Affinity: 13}
+	R14B = Register{Index: -1, Virtual: false, Name: "r14b", Type: LIRTypeByte, Affinity: 14}
+	R15B = Register{Index: -1, Virtual: false, Name: "r15b", Type: LIRTypeByte, Affinity: 15}
 
 	// 128-bit registers
 	// single precision floating point
@@ -149,6 +149,26 @@ var (
 	// 256-bit registers
 )
 
+var AllRegisters = []Register{
+	RAX, RBX, RCX, RDX, RSI, RDI, RSP, RBP, R8, R9, R10, R11, R12, R13, R14, R15, RIP,
+	EAX, EBX, ECX, EDX, ESI, EDI, ESP, EBP, R8D, R9D, R10D, R11D, R12D, R13D, R14D, R15D,
+	AX, BX, CX, DX, SI, DI, SP, BP, R8W, R9W, R10W, R11W, R12W, R13W, R14W, R15W,
+	AH, AL, BH, BL, CH, CL, DH, DL, SIL, DIL, BPL, SPL, R8B, R9B, R10B, R11B, R12B, R13B, R14B, R15B,
+	XMM0S, XMM1S, XMM2S, XMM3S, XMM4S, XMM5S, XMM6S, XMM7S, XMM8S, XMM9S, XMM10S, XMM11S, XMM12S, XMM13S, XMM14S, XMM15S,
+	XMM0D, XMM1D, XMM2D, XMM3D, XMM4D, XMM5D, XMM6D, XMM7D, XMM8D, XMM9D, XMM10D, XMM11D, XMM12D, XMM13D, XMM14D, XMM15D,
+}
+
+// Cast a register to a specific type, i.e. RAX -> EAX
+func (r Register) Cast(t *LIRType) Register {
+	for _, reg := range AllRegisters {
+		if reg.Affinity == r.Affinity && reg.Type == t &&
+			!reg.IsHigh /*rax -> al*/ {
+			return reg
+		}
+	}
+	return NoReg
+}
+
 func ReturnReg(t *LIRType) Register {
 	switch t {
 	case LIRTypeQWord:
@@ -162,6 +182,10 @@ func ReturnReg(t *LIRType) Register {
 	case LIRTypeVoid:
 		// no return value
 		return NoReg
+	case LIRTypeVector16S:
+		return XMM0S
+	case LIRTypeVector16D:
+		return XMM0D
 	default:
 		utils.ShouldNotReachHere()
 	}

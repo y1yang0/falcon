@@ -1314,6 +1314,26 @@ func TestLoopReturn(t *testing.T) {
 	ExecExpect(source)
 }
 
+func TestArithmeticDouble(t *testing.T) {
+	source := `
+	func main(){
+		let p = 1.0
+		let q = 2.0
+		let r = p + q
+		assert_double(r,3.0)
+		let s = p - q
+		assert_double(s,-1.0)
+		let t = p * q
+		assert_double(t,2.0)
+		let u = p / q
+		assert_double(u,0.5)
+		let v = p % q
+		assert_double(v,1.0)
+	}
+	`
+	ExecExpect(source)
+}
+
 // func TestSubstring(t *testing.T) {
 // 	source := `
 // 	func substring(s string, l int, r int) string {

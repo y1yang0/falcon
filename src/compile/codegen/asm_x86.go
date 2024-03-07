@@ -28,14 +28,14 @@ type Assembler struct {
 	funcIndex   int
 
 	scalarScratch []Register
-	floatScratch  Register
-	doubleScratch Register
+	floatScratch  []Register
+	doubleScratch []Register
 }
 
 func NewAssembler() *Assembler {
 	asm := &Assembler{
 		buf:         "",
-		stackOffset: -16,
+		stackOffset: -8,
 		v2offset:    make(map[int]int),
 		funcIndex:   0,
 	}
@@ -48,8 +48,8 @@ func NewAssembler() *Assembler {
 	// requirement is that it's a caller save register, because we don't know if
 	// the value in the register is still needed after the function call.
 	asm.scalarScratch = []Register{R10, R10D, R10W, R10B}
-	asm.floatScratch = XMM15S
-	asm.doubleScratch = XMM15D
+	asm.floatScratch = []Register{XMM14S, XMM15S}
+	asm.doubleScratch = []Register{XMM14D, XMM15D}
 	return asm
 }
 
@@ -63,24 +63,56 @@ func (asm *Assembler) GetScratchReg(t *LIRType) Register {
 		}
 		return BadReg
 	case LIRTypeVector16S:
-		return asm.floatScratch
+		return asm.floatScratch[0]
 	case LIRTypeVector16D:
-		return asm.doubleScratch
+		return asm.doubleScratch[0]
 	default:
 		utils.Unimplement()
 	}
 	return NoReg
 }
 
+func (asm *Assembler) GetVectorScratchReg(t *LIRType) []Register {
+	switch t {
+	case LIRTypeVector16S:
+		return asm.floatScratch
+	case LIRTypeVector16D:
+		return asm.doubleScratch
+	default:
+		utils.Unimplement()
+	}
+	return nil
+}
+
 func (asm *Assembler) comment(comment string) {
 	asm.buf += fmt.Sprintf("  # %s\n", comment)
 }
 
-// Instruction suffixes
+// For integer instructions, suffix is used to specify the width of the operand
 // b byte
 // w word (2 bytes)
 // l long /doubleword (4 bytes)
 // q quadword (8 bytes)
+//
+// For SSE/AVX instructions, there involes more suffixes. For example, we have
+// 128bits XMM registers, and we can use them to store 4 single precision floating
+// or 2 double precision floating point numbers
+//
+// [ 32bits ][ 32bits ][ 32bits ][ 32bits ] xmm0
+// [ 32bits ][ 32bits ][ 32bits ][ 32bits ] xmm1
+// [ 64bits ][ 64bits ] xmm0
+// [ 64bits ][ 64bits ] xmm1
+//
+// ss suffix is used for scalar single precision floating point, all related
+// instructions operates on the lower 32 bits of the register, the upper 96 bits
+// are ignored.
+// sd suffix is used for scalar double precision floating point, all related
+// instructions operates on the lower 64 bits of the register, the upper 64 bits
+// are ignored.
+// ps suffix is used for packed single precision floating point, all related
+// instructions operates each pair of 32 bits in the register.
+// pd suffix is used for packed double precision floating point, all related
+// instructions operates each 64 bits in the register.
 func (asm *Assembler) suffix(t *LIRType) string {
 	switch t {
 	case LIRTypeByte:
@@ -184,12 +216,12 @@ func (asm *Assembler) operand(operand IOperand) string {
 	case Text:
 		if v.Kind == TextString {
 			// Text is immediate by referenced by label
-			return fmt.Sprintf("$.T_%d", v.Id)
+			return fmt.Sprintf("$.T%d_%d", asm.funcIndex, v.Id)
 		} else if v.Kind == TextFloat {
 			// .T_0:
 			//   ..quad 0x12345
 			// movsd .T_0(%rip), %xmm0
-			return fmt.Sprintf(".T_%d", v.Id)
+			return fmt.Sprintf(".T%d_%d", asm.funcIndex, v.Id)
 		} else {
 			utils.ShouldNotReachHere()
 		}
@@ -252,24 +284,45 @@ func (asm *Assembler) emit1(mnemonic string, dst IOperand) {
 // emit2 emits an instruction with two operands
 func (asm *Assembler) emit2(mnemonic string, src IOperand, dst IOperand) {
 	dstType := dst.GetType()
-	// Try to load source to scratch register if possible
-	srcReg := asm.loadToScratchReg(src)
-	if srcReg, isReg := srcReg.(Register); isReg {
+	// @@ SSE instructions often requires the dest operand to be hold in register
+	// while src can be either address or register. For SSE instructions, we would
+	// load both src and dst into scratch registers and do computation, then move
+	// result back to dst.
+	if dstType.IsVector() {
+		srcReg := asm.loadToReg(src, asm.GetVectorScratchReg(dstType)[0])
+		dstReg := asm.loadToReg(dst, asm.GetVectorScratchReg(dstType)[1])
 		asm.buf += fmt.Sprintf("  %s%s %s, %s\n",
 			mnemonic,
 			asm.suffix(dstType),
 			asm.operand(srcReg),
+			asm.operand(dstReg),
+		)
+		asm.buf += fmt.Sprintf("  mov%s %s, %s\n",
+			asm.suffix(dstType),
+			asm.operand(dstReg),
 			asm.operand(dst),
 		)
-		return
+	} else {
+		utils.Assert(dstType.IsScalar(), "must be scalar type")
+		// Try to load source to scratch register if possible
+		srcReg := asm.loadToScratchReg(src)
+		if srcReg, isReg := srcReg.(Register); isReg {
+			asm.buf += fmt.Sprintf("  %s%s %s, %s\n",
+				mnemonic,
+				asm.suffix(dstType),
+				asm.operand(srcReg),
+				asm.operand(dst),
+			)
+			return
+		}
+		// Fair enough, generate asm directly
+		asm.buf += fmt.Sprintf("  %s%s %s, %s\n",
+			mnemonic,
+			asm.suffix(dstType),
+			asm.operand(src),
+			asm.operand(dst),
+		)
 	}
-	// Fair enough, generate asm directly
-	asm.buf += fmt.Sprintf("  %s%s %s, %s\n",
-		mnemonic,
-		asm.suffix(dstType),
-		asm.operand(src),
-		asm.operand(dst),
-	)
 }
 
 var FrameSize = Symbol{Name: "FRAME_SIZE"}
@@ -353,15 +406,19 @@ func (asm *Assembler) sar(src IOperand, dst IOperand) {
 }
 
 func (asm *Assembler) cmp(res IOperand, src IOperand, dst IOperand, op LIROp) {
-	asm.emit2("cmp", src, dst)
-	if res != src && res != dst {
-		// Result of cmp is set and might be used later, so we need to save it
-		freeRegs := CallerSaveRegs(res.GetType())
-		asm.setcc(AL, op)
-		if freeRegs[0].GetType().Width != 1 {
-			asm.movzx(AL, freeRegs[0])
+	if dst.GetType().IsScalar() {
+		asm.emit2("cmp", src, dst)
+		if res != src && res != dst {
+			// Result of cmp is set and might be used later, so we need to save it
+			freeRegs := CallerSaveRegs(res.GetType())
+			asm.setcc(AL, op)
+			if freeRegs[0].GetType().Width != 1 {
+				asm.movzx(AL, freeRegs[0])
+			}
+			asm.mov(freeRegs[0], res)
 		}
-		asm.mov(freeRegs[0], res)
+	} else {
+		asm.emit2("ucomi", src, dst)
 	}
 }
 
@@ -465,8 +522,8 @@ func (asm *Assembler) mul(src IOperand, dst IOperand) {
 // Signed divide %rdx:%rax by S
 // Quotient stored in %rax
 // Remainder stored in %rdx
-func (asm *Assembler) div(src IOperand) {
-	source := asm.loadToScratchReg(src)
+func (asm *Assembler) idiv(src IOperand) {
+	utils.Assert(src.GetType().IsScalar(), "must be scalar type")
 	// The Intel-syntax conversion instructions
 	// cbw — sign-extend byte in %al to word in %ax,
 	// cwde — sign-extend word in %ax to long in %eax,
@@ -487,7 +544,13 @@ func (asm *Assembler) div(src IOperand) {
 	default:
 		utils.Unimplement()
 	}
+	source := asm.loadToScratchReg(src)
 	asm.emit1("idiv", source)
+}
+
+func (asm *Assembler) div(src IOperand, dst IOperand) {
+	utils.Assert(src.GetType().IsVector(), "must be vector type")
+	asm.emit2("div", src, dst)
 }
 
 func (asm *Assembler) call(res IOperand, target IOperand) {
@@ -505,7 +568,7 @@ func (asm *Assembler) label(name Label) {
 }
 
 func (asm *Assembler) text(t Text) {
-	asm.buf += fmt.Sprintf(".T_%d:\n", t.Id)
+	asm.buf += fmt.Sprintf(".T%d_%d:\n", asm.funcIndex, t.Id)
 	switch t.Kind {
 	case TextString:
 		asm.buf += fmt.Sprintf("  .string \"%s\"\n", t.Value)
@@ -537,7 +600,12 @@ func (asm *Assembler) emit(instr *Instruction) {
 	case LIR_Mul:
 		asm.mul(instr.Args[0], instr.Args[1])
 	case LIR_Div:
-		asm.div(instr.Args[0])
+		src := instr.Args[0]
+		if src.GetType().IsScalar() {
+			asm.idiv(instr.Args[0])
+		} else {
+			asm.div(instr.Args[0], instr.Args[1])
+		}
 	case LIR_And:
 		asm.and(instr.Args[0], instr.Args[1])
 	case LIR_Or:
@@ -599,6 +667,8 @@ func CodeGen(lirs []*LIR, debug bool) string {
 		// Fixup frame size until all code was generated, we can not fix in
 		// emitEpilogue because there are many ret instructions
 		frameSize := utils.Abs(asm.stackOffset)
+		// Align with 16 bytes
+		frameSize = utils.Align16(frameSize)
 		asm.patchSymbol(FrameSize, lir.NewImm(frameSize))
 
 		// Print "register allocation" result for values

@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -131,4 +132,13 @@ func CopyFilesToTempDir(dir string, files []string) (string, error) {
 		}
 	}
 	return tempDir, nil
+}
+
+func Align16(n int) int {
+	return (n + 15) &^ 15
+}
+
+func Float64ToHex(f float64) string {
+	hex := fmt.Sprintf("%x", math.Float64bits(f))
+	return fmt.Sprintf("0x%s", hex)
 }

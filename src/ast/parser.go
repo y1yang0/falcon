@@ -278,31 +278,7 @@ func (p *Parser) parseLetStmt() AstStmt {
 		// Let without init, set default value based on type
 		t := elem.Var.Type
 		Assert(t != nil, "Type of let variable must be specified")
-		var defaultValue AstExpr
-		switch t.Kind {
-		case TypeInt:
-			defaultValue = &IntExpr{Value: 0}
-		case TypeLong:
-			defaultValue = &LongExpr{Value: 0}
-		case TypeShort:
-			defaultValue = &ShortExpr{Value: 0}
-		case TypeChar:
-			defaultValue = &CharExpr{Value: 0}
-		case TypeFloat:
-			defaultValue = &FloatExpr{Value: 0}
-		case TypeDouble:
-			defaultValue = &DoubleExpr{Value: 0}
-		case TypeString:
-			defaultValue = &StrExpr{Value: ""}
-		case TypeBool:
-			defaultValue = &BoolExpr{Value: false}
-		case TypeByte:
-			defaultValue = &ByteExpr{Value: 0}
-		default:
-			syntaxError("Unsupported type %v for let variable", t)
-		}
-		defaultValue.SetType(t)
-		elem.Init = defaultValue
+		elem.Init = CreateDefaultConst(t)
 	}
 	return elem
 }

@@ -78,16 +78,6 @@ type Instruction struct {
 	Comment string
 }
 
-type LIR struct {
-	vid          int                    // global virtual register id
-	v2r          map[int]Register       // Value id to virtual register
-	roid         int                    // global read-only section id
-	Name         string                 // function Name
-	Instructions map[int][]*Instruction // blocks of instructions, order of blocks is important
-	Labels       map[int]Label          // labels for each block for continuation point
-	Texts        []Text                 // read-only section literals(string/quads/longs)
-}
-
 type LIRTypeKind int
 
 type LIRType struct {
@@ -110,6 +100,16 @@ func (x *LIRType) IsValid() bool {
 	return x != LIRTypeBottom
 }
 
+func (x *LIRType) IsScalar() bool {
+	return x == LIRTypeByte || x == LIRTypeWord ||
+		x == LIRTypeDWord || x == LIRTypeQWord
+}
+
+func (x *LIRType) IsVector() bool {
+	return x == LIRTypeVector16S || x == LIRTypeVector16D ||
+		x == LIRTypeVector32 || x == LIRTypeVector64
+}
+
 type IOperand interface {
 	String() string
 	GetType() *LIRType
@@ -127,10 +127,12 @@ type Symbol struct {
 
 // register, either physical or virtual, e.g. %rax, %rbp, v0, v1
 type Register struct {
-	Type    *LIRType
-	Index   int
-	Name    string // mnemonic name
-	Virtual bool   // virtual register, in fact almost all registers are virtual in this pass
+	Type     *LIRType
+	Index    int
+	Name     string // mnemonic name
+	Virtual  bool   // virtual register, in fact almost all registers are virtual in this pass
+	Affinity int
+	IsHigh   bool
 }
 
 type TextKind int
@@ -303,126 +305,40 @@ func (x Text) String() string {
 	return x.Value
 }
 
-func (lir *LIR) String() string {
-	str := ""
-	for idx, instrs := range lir.Instructions {
-		str += fmt.Sprintf("b%d:\n", idx)
-		for _, instr := range instrs {
-			str += fmt.Sprintf("  %v %v", instr.Op, instr.Result)
-			for _, arg := range instr.Args {
-				str += fmt.Sprintf(", %v", arg)
-			}
-			str += fmt.Sprintf("  # %v", instr.Comment)
-			str += "\n"
-		}
+func getCondLirOp(ssaOp ssa.Op) LIROp {
+	switch ssaOp {
+	case ssa.OpCmpLE:
+		return LIR_CmpLE
+	case ssa.OpCmpLT:
+		return LIR_CmpLT
+	case ssa.OpCmpGE:
+		return LIR_CmpGE
+	case ssa.OpCmpGT:
+		return LIR_CmpGT
+	case ssa.OpCmpEQ:
+		return LIR_CmpEQ
+	case ssa.OpCmpNE:
+		return LIR_CmpNE
 	}
-	return str
+	utils.ShouldNotReachHere()
+	return 0
 }
 
-func (lir *LIR) SetResult(val *ssa.Value, result IOperand) {
-	lir.v2r[val.Id] = result.(Register)
-}
-
-func (lir *LIR) NewInstr(idx int, op LIROp, args ...IOperand) *Instruction {
-	utils.Assert(len(args) > 0, "at least one argument")
-	result := args[0]
-	instr := &Instruction{Op: op, Result: result, Args: args[1:]}
-	lir.Instructions[idx] = append(lir.Instructions[idx], instr)
-	return instr
-}
-
-func (lir *LIR) NewLabel(idx int) Label {
-	target := Label{Name: fmt.Sprintf("L%d", idx)}
-
-	lir.Labels[idx] = target
-	return target
-}
-
-func (lir *LIR) NewText(value string, kind TextKind) Text {
-	target := Text{Value: value, Id: lir.roid, Kind: kind}
-	lir.Texts = append(lir.Texts, target)
-	lir.roid++
-	return target
-}
-
-func (lir *LIR) NewJmp(idx int, op LIROp, block *ssa.Block) *Instruction {
-	var target Label
-	if label, ok := lir.Labels[block.Id]; ok {
-		target = label
-	} else {
-		target = lir.NewLabel(block.Id)
+func getCondJumpLirOp(ssaOp ssa.Op) LIROp {
+	switch ssaOp {
+	case ssa.OpCmpLE:
+		return LIR_Jle
+	case ssa.OpCmpLT:
+		return LIR_Jlt
+	case ssa.OpCmpGE:
+		return LIR_Jge
+	case ssa.OpCmpGT:
+		return LIR_Jgt
+	case ssa.OpCmpEQ:
+		return LIR_Jeq
+	case ssa.OpCmpNE:
+		return LIR_Jne
 	}
-	instr := &Instruction{Op: op, Result: target}
-	lir.Instructions[idx] = append(lir.Instructions[idx], instr)
-	lir.Labels[block.Id] = target
-	return instr
-}
-
-func (lir *LIR) NewOffset(offset int) Offset {
-	return Offset{offset}
-}
-
-func (lir *LIR) NewImm(val interface{}) IOperand {
-	// we don't really need lir receiver, but leave it for consistency
-	switch val.(type) {
-	case int:
-		return Imm{LIRTypeDWord, val.(int)}
-	case bool:
-		if val.(bool) {
-			return Imm{LIRTypeDWord, 1}
-		}
-		return Imm{LIRTypeDWord, 0}
-	default:
-		utils.Unimplement()
-	}
-	return Imm{}
-}
-
-func (lir *LIR) NewAddr(t *LIRType, base Register, index Register, disp IOperand) Addr {
-	return Addr{t, base, index, t.Width, disp}
-}
-
-func (lir *LIR) NewVReg(v *ssa.Value) Register {
-	if r, ok := lir.v2r[v.Id]; ok {
-		return r
-	}
-	r := Register{Index: lir.vid, Virtual: true, Type: GetLIRType(v.Type)}
-	lir.vid++
-	lir.v2r[v.Id] = r
-	return r
-}
-
-func (x *Instruction) comment(v interface{}) {
-	switch v := v.(type) {
-	case *ssa.Block:
-		x.Comment = fmt.Sprintf("b%d", v.Id)
-	case *ssa.Value:
-		x.Comment = fmt.Sprintf("%v", v)
-	case string:
-		x.Comment = v
-	default:
-		utils.Unimplement()
-	}
-}
-
-func VerifyLIR(lir *LIR) {
-	// verify that all instructions have a result
-	for _, instrs := range lir.Instructions {
-		for _, instr := range instrs {
-			utils.Assert(instr.Result != nil, "miss result")
-			utils.Assert(len(instr.Args) >= 0 && len(instr.Args) <= 2, "miss args")
-		}
-	}
-}
-
-func NewLIR(fn *ssa.Func) *LIR {
-	return &LIR{
-		vid:          0,
-		roid:         0,
-		v2r:          make(map[int]Register),
-		Name:         fn.Name,
-		Instructions: make(map[int][]*Instruction, len(fn.Blocks)), //order is important
-		Labels:       make(map[int]Label),
-		Texts:        make([]Text, 0),
-	}
+	utils.ShouldNotReachHere()
+	return 0
 }

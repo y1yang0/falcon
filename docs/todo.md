@@ -23,12 +23,12 @@ This file is used to record the todo list of Falcon.
 - [ ] New lang feature: `package`
 - [ ] Implements classic math algorithms, e.g. `sqrt`, `min`, `max`,`clamp`,`ceil`,`floor`,etc in `stdlib.y`
 - [ ] Register allocation, either on HIR or LIR
-- [ ] Implement `++` and `--` operators
+- [x] Implement `++` and `--` operators
 - [x] New logo
 - [x] Add verification for LIR
 - [x] Review all type comparison
 - [ ] Official website
-- [ ] Experimental loop opts
+- [x] Experimental loop opts
 - [ ] Use of undefined variable should be an error
 
 ## Milestone 2: Falcon with object oriented programming

@@ -307,7 +307,7 @@ func hash(nums ...int) int {
 	}
 }
 
-const EnableLoopOpts = true
+const EnableLoopOpts = false
 
 func OptimizeHIR(fn *Func, debug bool) {
 	opt := &Optimizer{
