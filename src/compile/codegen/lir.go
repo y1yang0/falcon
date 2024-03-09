@@ -72,12 +72,11 @@ const (
 )
 
 type Instruction struct {
+	Id      int
 	Op      LIROp
 	Result  IOperand
 	Args    []IOperand // two-operand form
 	Comment string
-
-	Id int
 }
 
 type LIRTypeKind int

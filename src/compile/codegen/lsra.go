@@ -16,19 +16,25 @@
 package codegen
 
 import (
-	"falcon/compile/ssa"
 	"falcon/utils"
 	"math"
+	"sort"
 )
+
+// -----------------------------------------------------------------------------
+// Linear Scan Register Allocation
+//
+// After lowering the IR to LIR, we need to allocate registers to the virtual
+// registers. We use the linear scan register allocation algorithm to do this.
+// The algorithm is based on the paper "Linear Scan Register Allocation for the
+// Java HotSpot™ Client Compiler" by Christian Wimmer, et al.
 
 type LSRA struct {
 	lir    *LIR
-	blocks []*ssa.Block
+	blocks []int
 
-	instId2Block map[int]*ssa.Block // TODO: we should optimize this field out
-
-	genKillMap   map[*ssa.Block]*GenKill
-	liveInOutMap map[*ssa.Block]*LiveInOut
+	genKillMap   map[int]*GenKill
+	liveInOutMap map[int]*LiveInOut
 
 	vri2Interval map[int]*Interval // virtual register index to interval
 	pri2Interval map[int]*Interval // physical register index to fixed interval
@@ -90,32 +96,29 @@ func (ra *LSRA) initOrder() {
 	// TODO: A more appropriate order should be used.
 	//       Order does not break correctness, but it is important for performance.
 	//       For simplicity, we use the original order.
-	ra.blocks = ra.lir.Blocks
-}
-
-func (ra *LSRA) numberInstructions() {
-	ra.instId2Block = make(map[int]*ssa.Block)
-	id := 0 // start from 0
-	for _, b := range ra.blocks {
-		is := ra.lir.Instructions[b.Id]
-		for _, i := range is {
-			i.Id = id
-			ra.instId2Block[id] = b
-			id++
-		}
+	lir := ra.lir
+	blocksOrder := make([]int, 0)
+	for key := range lir.Instructions {
+		blocksOrder = append(blocksOrder, key)
 	}
+	sort.SliceStable(blocksOrder, func(i, j int) bool {
+		return blocksOrder[i] <= blocksOrder[j]
+	})
+	ra.blocks = blocksOrder
 }
 
 func (ra *LSRA) computeGenKillMap(nofVR int) {
-	m := make(map[*ssa.Block]*GenKill)
+	// Per-block liveness analysis
+	m := make(map[int]*GenKill)
 	for _, b := range ra.blocks {
 		gk := GenKill{
 			gen:  utils.NewBitMap(nofVR),
 			kill: utils.NewBitMap(nofVR),
 		}
 		m[b] = &gk
-		is := ra.lir.Instructions[b.Id]
+		is := ra.lir.Instructions[b]
 		for _, i := range is {
+			// Instruction operands are all used before defined
 			for _, a := range i.Args {
 				if r, ok := a.(Register); ok {
 					if r.Virtual && !gk.kill.IsSet(r.Index) {
@@ -123,7 +126,7 @@ func (ra *LSRA) computeGenKillMap(nofVR int) {
 					}
 				}
 			}
-
+			// Instruction result is defined, i.e., killed
 			if r, ok := i.Result.(Register); ok {
 				if r.Virtual {
 					gk.kill.Set(r.Index)
@@ -135,7 +138,8 @@ func (ra *LSRA) computeGenKillMap(nofVR int) {
 }
 
 func (ra *LSRA) computeLiveInOutMap(nofVR int) {
-	m := make(map[*ssa.Block]*LiveInOut)
+	// Global liveness analysis
+	m := make(map[int]*LiveInOut)
 	for _, b := range ra.blocks {
 		m[b] = &LiveInOut{
 			in:  utils.NewBitMap(nofVR),
@@ -448,7 +452,6 @@ func (ra *LSRA) allocate() {
 
 	// TODO: trace support
 	ra.initOrder()
-	ra.numberInstructions()
 	ra.computeGenKillMap(nofVR)
 	ra.computeLiveInOutMap(nofVR)
 	ra.buildIntervals()

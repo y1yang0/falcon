@@ -25,14 +25,13 @@ import (
 type LIR struct {
 	bid          int                    // current block id
 	vid          int                    // global virtual register id
+	iid          int                    // global instruction id
 	v2r          map[int]Register       // Value id to virtual register
 	roid         int                    // global read-only section id
 	Name         string                 // function Name
 	Instructions map[int][]*Instruction // blocks of instructions, order of blocks is important
 	Labels       map[int]Label          // labels for each block for continuation point
 	Texts        []Text                 // read-only section literals(string/quads/longs)
-
-	Blocks []*ssa.Block // used by lsra
 }
 
 func (lir *LIR) String() string {
@@ -62,7 +61,8 @@ func (lir *LIR) NewInstr(op LIROp, args ...IOperand) *Instruction {
 func (lir *LIR) NewInstrTo(idx int, op LIROp, args ...IOperand) *Instruction {
 	utils.Assert(len(args) > 0, "at least one argument")
 	result := args[0]
-	instr := &Instruction{Op: op, Result: result, Args: args[1:]}
+	instr := &Instruction{Id: lir.iid, Op: op, Result: result, Args: args[1:]}
+	lir.iid++
 	lir.Instructions[idx] = append(lir.Instructions[idx], instr)
 	return instr
 }
@@ -165,7 +165,6 @@ func NewLIR(fn *ssa.Func) *LIR {
 		Instructions: make(map[int][]*Instruction, len(fn.Blocks)), //order is important
 		Labels:       make(map[int]Label),
 		Texts:        make([]Text, 0),
-		Blocks:       fn.Blocks,
 	}
 }
 
@@ -233,6 +232,8 @@ func (lir *LIR) thawPhi(val *ssa.Value) {
 	lir.Bind(val, res)
 }
 
+// -----------------------------------------------------------------------------
+// Lowering Pass
 func (lir *LIR) lowerCompare(val *ssa.Value) {
 	left := lir.NewVReg(val.Args[0])
 	right := lir.NewVReg(val.Args[1])
