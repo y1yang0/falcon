@@ -1,4 +1,4 @@
-// Copyright (c) 2024 The Sprite Programming Language
+// Copyright (c) 2024 The Falcon Programming Language
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -118,7 +118,8 @@ func (ra *LSRA) computeGenKillMap(nofVR int) {
 		m[b] = &gk
 		is := ra.lir.Instructions[b]
 		for _, i := range is {
-			// Instruction operands are all used before defined
+			// Instruction operands are all used after defined(say, in some preds),
+			// i.e., generated
 			for _, a := range i.Args {
 				if r, ok := a.(Register); ok {
 					if r.Virtual && !gk.kill.IsSet(r.Index) {
@@ -151,8 +152,10 @@ func (ra *LSRA) computeLiveInOutMap(nofVR int) {
 		for i := len(ra.blocks) - 1; i >= 0; i-- {
 			b := ra.blocks[i]
 			lio := m[b]
-
-			for _, s := range b.Succs {
+			// This is a backward data flow analysis, the rules are:
+			// 1. LiveIn{b} = Gen{b} U (LiveOut{b} - Kill{b})
+			// 2. LiveOut{b} = LiveIn{b} U LiveOut{succ1} U LiveOut{succ2} ...
+			for _, s := range ra.lir.Edges[b] {
 				lio2 := m[s]
 
 				if lio.out.Unite(lio2.in) {
@@ -187,14 +190,14 @@ func (ra *LSRA) buildIntervals() {
 		inOut := ra.liveInOutMap[b]
 		out := inOut.out
 		for i := 0; i < out.Size(); i++ {
-			is := ra.lir.Instructions[b.Id]
+			is := ra.lir.Instructions[b]
 			if out.IsSet(i) {
 				i := ra.getOrCreateInterval(i, true)
 				i.addRange(is[0].Id, is[len(is)-1].Id)
 			}
 		}
 
-		is := ra.lir.Instructions[b.Id]
+		is := ra.lir.Instructions[b]
 		for i := len(is) - 1; i >= 0; i-- {
 			instruction := is[i]
 
@@ -344,6 +347,13 @@ func (ra *LSRA) forEachActiveAndInactiveInterval(f func(interval *Interval)) {
 	})
 }
 
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
 func (ra *LSRA) allocatePhyReg() {
 	l := nofAvailPhyReg()
 	use := make([]int, l)
@@ -429,7 +439,7 @@ func (ra *LSRA) insertMoves() {
 
 func (ra *LSRA) resolveDataFlow() {
 	for _, fb := range ra.blocks {
-		for _, tb := range fb.Succs {
+		for _, tb := range ra.lir.Edges[fb] {
 			mr := newMoveResolver(ra, fb, tb)
 			lives := ra.liveInOutMap[tb].in
 			for i := 0; i < lives.Size(); i++ {

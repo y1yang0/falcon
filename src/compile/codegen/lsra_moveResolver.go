@@ -1,4 +1,4 @@
-// Copyright (c) 2024 The Sprite Programming Language
+// Copyright (c) 2024 The Falcon Programming Language
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -22,8 +22,8 @@ import (
 
 type MoveResolver struct {
 	ra   *LSRA
-	from *ssa.Block
-	to   *ssa.Block
+	from int
+	to   int
 
 	pairs map[*Interval]*Interval
 
@@ -148,7 +148,7 @@ func (mr *MoveResolver) move(fi *Interval, ti *Interval, prIdToFrom map[int]*Int
 	return buffer
 }
 
-func newMoveResolver(ra *LSRA, from, to *ssa.Block) *MoveResolver {
+func newMoveResolver(ra *LSRA, from, to int) *MoveResolver {
 	return &MoveResolver{
 		ra:    ra,
 		from:  from,

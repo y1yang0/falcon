@@ -23,12 +23,14 @@ import (
 // == Code conjured by yyang, Feb, 2024 ==
 
 type LIR struct {
-	bid          int                    // current block id
-	vid          int                    // global virtual register id
-	iid          int                    // global instruction id
-	v2r          map[int]Register       // Value id to virtual register
-	roid         int                    // global read-only section id
+	bid  int              // current block id
+	vid  int              // global virtual register id
+	iid  int              // global instruction id
+	v2r  map[int]Register // Value id to virtual register
+	roid int              // global read-only section id
+
 	Name         string                 // function Name
+	Edges        map[int][]int          // CFG edges is still useful for passes after lowering
 	Instructions map[int][]*Instruction // blocks of instructions, order of blocks is important
 	Labels       map[int]Label          // labels for each block for continuation point
 	Texts        []Text                 // read-only section literals(string/quads/longs)
@@ -162,6 +164,7 @@ func NewLIR(fn *ssa.Func) *LIR {
 		roid:         0,
 		v2r:          make(map[int]Register),
 		Name:         fn.Name,
+		Edges:        make(map[int][]int),
 		Instructions: make(map[int][]*Instruction, len(fn.Blocks)), //order is important
 		Labels:       make(map[int]Label),
 		Texts:        make([]Text, 0),
@@ -561,6 +564,15 @@ func (lir *LIR) lowerBlockControl(block *ssa.Block) {
 	}
 }
 
+func (lir *LIR) collectEdges(fn *ssa.Func) {
+	for _, block := range fn.Blocks {
+		lir.Edges[block.Id] = make([]int, 0)
+		for _, succ := range block.Succs {
+			lir.Edges[block.Id] = append(lir.Edges[block.Id], succ.Id)
+		}
+	}
+}
+
 func Lower(fn *ssa.Func) *LIR {
 	lir := NewLIR(fn)
 
@@ -580,6 +592,9 @@ func Lower(fn *ssa.Func) *LIR {
 	for _, block := range fn.Blocks {
 		lir.lowerBlockControl(block)
 	}
+
+	// Collect all edges for later passes
+	lir.collectEdges(fn)
 
 	VerifyLIR(lir)
 	return lir
