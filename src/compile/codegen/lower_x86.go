@@ -573,6 +573,8 @@ func (lir *LIR) collectEdges(fn *ssa.Func) {
 	}
 }
 
+const EnableRegAlloc = true
+
 func Lower(fn *ssa.Func) *LIR {
 	lir := NewLIR(fn)
 
@@ -597,6 +599,9 @@ func Lower(fn *ssa.Func) *LIR {
 	lir.collectEdges(fn)
 
 	VerifyLIR(lir)
+	if EnableRegAlloc {
+		lsra(lir)
+	}
 	return lir
 }
 

@@ -16,7 +16,7 @@
 package codegen
 
 import (
-	"falcon/utils"
+	"fmt"
 	"math"
 )
 
@@ -38,6 +38,15 @@ type Interval struct {
 
 	fixed   bool
 	spilled bool
+}
+
+func (i *Interval) String() string {
+	str := "Interval@" + fmt.Sprintf("%d", i) + ":"
+	r := i._range
+	for r != nil {
+		str += fmt.Sprintf(" [%d,%d)", i._range.from, i._range.to)
+	}
+	return str
 }
 
 type Range struct {
@@ -270,81 +279,81 @@ func (i *Interval) assignStackSlot(index int) {
 }
 
 func (i *Interval) insertMoves(ra *LSRA) {
-	left := i
-	right := i.children
+	// left := i
+	// right := i.children
 
-	for right != nil {
-		id1 := left.lastRange().to
-		id2 := right.fistRange().from
-		if id1+1 == id2 {
-			b1 := ra.instId2Block[id1]
-			b2 := ra.instId2Block[id2]
-			if b1 == b2 {
-				if left.spilled {
-					if !right.spilled {
-						insts := ra.lir.Instructions[b1.Id]
-						ra.lir.Instructions[b1.Id] = utils.InsertAt(
-							insts,
-							indexOfInst(insts, id2),
-							&Instruction{
-								Op: LIR_Mov,
-								Result: Register{
-									// TODO
-									Virtual: false,
-								},
-								Args: []IOperand{
-									Addr{
-										// TODO
-									},
-								},
-							},
-						)
-					}
-				} else if right.spilled {
-					if !left.spilled {
-						insts := ra.lir.Instructions[b1.Id]
-						ra.lir.Instructions[b1.Id] = utils.InsertAt(
-							insts,
-							indexOfInst(insts, id2),
-							&Instruction{
-								Op:     LIR_Mov,
-								Result: Addr{
-									// TODO
-								},
-								Args: []IOperand{
-									Register{
-										// TODO
-										Virtual: false,
-									},
-								},
-							},
-						)
-					}
-				} else if left.phyRegIndex != right.phyRegIndex {
-					insts := ra.lir.Instructions[b1.Id]
-					ra.lir.Instructions[b1.Id] = utils.InsertAt(
-						insts,
-						indexOfInst(insts, id2),
-						&Instruction{
-							Op: LIR_Mov,
-							Result: Register{
-								// TODO
-								Virtual: false,
-							},
-							Args: []IOperand{
-								Register{
-									// TODO
-									Virtual: false,
-								},
-							},
-						},
-					)
-				}
-			}
-		}
-		left = right
-		right = right.sibling
-	}
+	// for right != nil {
+	// 	id1 := left.lastRange().to
+	// 	id2 := right.fistRange().from
+	// 	if id1+1 == id2 {
+	// 		b1 := ra.instId2Block[id1]
+	// 		b2 := ra.instId2Block[id2]
+	// 		if b1 == b2 {
+	// 			if left.spilled {
+	// 				if !right.spilled {
+	// 					insts := ra.lir.Instructions[b1.Id]
+	// 					ra.lir.Instructions[b1.Id] = utils.InsertAt(
+	// 						insts,
+	// 						indexOfInst(insts, id2),
+	// 						&Instruction{
+	// 							Op: LIR_Mov,
+	// 							Result: Register{
+	// 								// TODO
+	// 								Virtual: false,
+	// 							},
+	// 							Args: []IOperand{
+	// 								Addr{
+	// 									// TODO
+	// 								},
+	// 							},
+	// 						},
+	// 					)
+	// 				}
+	// 			} else if right.spilled {
+	// 				if !left.spilled {
+	// 					insts := ra.lir.Instructions[b1.Id]
+	// 					ra.lir.Instructions[b1.Id] = utils.InsertAt(
+	// 						insts,
+	// 						indexOfInst(insts, id2),
+	// 						&Instruction{
+	// 							Op:     LIR_Mov,
+	// 							Result: Addr{
+	// 								// TODO
+	// 							},
+	// 							Args: []IOperand{
+	// 								Register{
+	// 									// TODO
+	// 									Virtual: false,
+	// 								},
+	// 							},
+	// 						},
+	// 					)
+	// 				}
+	// 			} else if left.phyRegIndex != right.phyRegIndex {
+	// 				insts := ra.lir.Instructions[b1.Id]
+	// 				ra.lir.Instructions[b1.Id] = utils.InsertAt(
+	// 					insts,
+	// 					indexOfInst(insts, id2),
+	// 					&Instruction{
+	// 						Op: LIR_Mov,
+	// 						Result: Register{
+	// 							// TODO
+	// 							Virtual: false,
+	// 						},
+	// 						Args: []IOperand{
+	// 							Register{
+	// 								// TODO
+	// 								Virtual: false,
+	// 							},
+	// 						},
+	// 					},
+	// 				)
+	// 			}
+	// 		}
+	// 	}
+	// 	left = right
+	// 	right = right.sibling
+	// }
 }
 
 func indexOfInst(insts []*Instruction, id int) int {

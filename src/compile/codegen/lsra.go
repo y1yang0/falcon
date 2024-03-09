@@ -17,6 +17,7 @@ package codegen
 
 import (
 	"falcon/utils"
+	"fmt"
 	"math"
 	"sort"
 )
@@ -470,9 +471,21 @@ func (ra *LSRA) allocate() {
 	ra.computeGenKillMap(nofVR)
 	ra.computeLiveInOutMap(nofVR)
 	ra.buildIntervals()
-	ra.allocateRegisters()
-	ra.insertMoves()
-	ra.resolveDataFlow()
+	// TODO: Maybe we can step by step to let LSRA work
+	fmt.Printf("==Interval==\n")
+	for _, i := range ra.nonFixedIntervals {
+		fmt.Printf("%s\n", i)
+	}
+	for k, i := range ra.vri2Interval {
+		fmt.Printf("%d:%s\n", k, i)
+	}
+	for k, i := range ra.pri2Interval {
+		fmt.Printf("%d:%s\n", k, i)
+	}
+
+	// ra.allocateRegisters()
+	// ra.insertMoves()
+	// ra.resolveDataFlow()
 }
 
 // The entry

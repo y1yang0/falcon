@@ -16,7 +16,6 @@
 package codegen
 
 import (
-	"falcon/compile/ssa"
 	"falcon/utils"
 )
 
@@ -38,51 +37,51 @@ func (mr *MoveResolver) record(from, to *Interval) {
 }
 
 func (mr *MoveResolver) resolve() {
-	utils.Assert(len(mr.from.Succs) > 1 && len(mr.to.Preds) > 1, "sanity check")
+	// utils.Assert(len(mr.from.Succs) > 1 && len(mr.to.Preds) > 1, "sanity check")
 
-	// decide insertion position
-	var b *ssa.Block
-	var is []*Instruction
-	var pos int
-	if len(mr.from.Succs) == 1 {
-		b = mr.from
-		is = mr.ra.lir.Instructions[b.Id]
-		l := len(is)
-		if isBranchOp(is[l-1].Op) {
-			pos = l - 1
-		} else {
-			pos = l
-		}
-	} else {
-		b = mr.to
-		is = mr.ra.lir.Instructions[b.Id]
-		pos = 0
-	}
+	// // decide insertion position
+	// var b *ssa.Block
+	// var is []*Instruction
+	// var pos int
+	// if len(mr.from.Succs) == 1 {
+	// 	b = mr.from
+	// 	is = mr.ra.lir.Instructions[b.Id]
+	// 	l := len(is)
+	// 	if isBranchOp(is[l-1].Op) {
+	// 		pos = l - 1
+	// 	} else {
+	// 		pos = l
+	// 	}
+	// } else {
+	// 	b = mr.to
+	// 	is = mr.ra.lir.Instructions[b.Id]
+	// 	pos = 0
+	// }
 
-	prIdToFrom := make(map[int]*Interval)
-	for fi, _ := range mr.pairs {
-		if fi.phyRegAssigned() {
-			prIdToFrom[fi.phyRegIndex] = fi
-		}
-	}
+	// prIdToFrom := make(map[int]*Interval)
+	// for fi, _ := range mr.pairs {
+	// 	if fi.phyRegAssigned() {
+	// 		prIdToFrom[fi.phyRegIndex] = fi
+	// 	}
+	// }
 
-	// process pairs
-	processed := utils.NewSet[*Interval]()
-	buffer := make([]*Instruction, 0)
-	for fi, ti := range mr.pairs {
-		buffer = mr.move(fi, ti, prIdToFrom, processed, buffer)
-	}
+	// // process pairs
+	// processed := utils.NewSet[*Interval]()
+	// buffer := make([]*Instruction, 0)
+	// for fi, ti := range mr.pairs {
+	// 	buffer = mr.move(fi, ti, prIdToFrom, processed, buffer)
+	// }
 
-	// insert new instructions
-	nis := make([]*Instruction, 0)
-	for i := 0; i < pos; i++ {
-		nis = append(nis, is[i])
-	}
-	nis = append(nis, buffer...)
-	for i := pos; i < len(is); i++ {
-		nis = append(nis, is[i])
-	}
-	mr.ra.lir.Instructions[b.Id] = nis
+	// // insert new instructions
+	// nis := make([]*Instruction, 0)
+	// for i := 0; i < pos; i++ {
+	// 	nis = append(nis, is[i])
+	// }
+	// nis = append(nis, buffer...)
+	// for i := pos; i < len(is); i++ {
+	// 	nis = append(nis, is[i])
+	// }
+	// mr.ra.lir.Instructions[b.Id] = nis
 }
 
 func (mr *MoveResolver) move(fi *Interval, ti *Interval, prIdToFrom map[int]*Interval, processed *utils.Set[*Interval], buffer []*Instruction) []*Instruction {
