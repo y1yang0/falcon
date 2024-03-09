@@ -471,7 +471,8 @@ func (ra *LSRA) allocate() {
 	ra.computeGenKillMap(nofVR)
 	ra.computeLiveInOutMap(nofVR)
 	ra.buildIntervals()
-	// TODO: Maybe we can step by step to let LSRA work
+	// TODO: Maybe we can step by step to let LSRA work, please run try.sh
+	// as a test case.
 	fmt.Printf("==Interval==\n")
 	for _, i := range ra.nonFixedIntervals {
 		fmt.Printf("%s\n", i)
