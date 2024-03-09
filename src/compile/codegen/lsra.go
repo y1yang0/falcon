@@ -189,6 +189,8 @@ func (ra *LSRA) buildIntervals() {
 		b := ra.blocks[i]
 		inOut := ra.liveInOutMap[b]
 		out := inOut.out
+		// For all instructions in the block, we build the initial intervals
+		// which equals to the entire block, then try to shorten them.
 		for i := 0; i < out.Size(); i++ {
 			is := ra.lir.Instructions[b]
 			if out.IsSet(i) {
@@ -209,12 +211,15 @@ func (ra *LSRA) buildIntervals() {
 			}
 
 			output := instruction.Result
+			// Def point there, we need to update start position of the interval
 			if r, ok := output.(Register); ok {
 				interval := ra.getOrCreateInterval(r.Index, r.Virtual)
 				interval.updateFromForFistRange(instruction.Id)
 				interval.addUsePoint(instruction.Id, UKWrite)
 			}
-
+			// Use point there, we need to update end position of the interval
+			// def is unknown, conservativly assume it starts at the beginning of
+			// the block
 			for _, input := range instruction.Args {
 				if r, ok := input.(Register); ok {
 					interval := ra.getOrCreateInterval(r.Index, r.Virtual)
