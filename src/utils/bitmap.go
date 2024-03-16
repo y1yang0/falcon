@@ -15,6 +15,10 @@
 
 package utils
 
+import (
+	"fmt"
+)
+
 type BitMap struct {
 	data []uint8
 	size int
@@ -25,6 +29,17 @@ func NewBitMap(size int) *BitMap {
 		data: make([]uint8, (size+7)/8),
 		size: size,
 	}
+}
+
+func (bm *BitMap) String() string {
+	s := ""
+	for i := 0; i < bm.size; i++ {
+		if bm.IsSet(i) {
+			// convert i to string
+			s += fmt.Sprintf("v%d ", i)
+		}
+	}
+	return s
 }
 
 func (bm *BitMap) Size() int {

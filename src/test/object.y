@@ -1,5 +1,5 @@
-	func main(){
+	func testregalloc()int{
 		let a = 3
-		let b = 3
-		cprint(a+b)
+		let b = 5
+		return a+b
 	}

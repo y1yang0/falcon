@@ -41,9 +41,9 @@ func (lir *LIR) String() string {
 	for idx, instrs := range lir.Instructions {
 		str += fmt.Sprintf("b%d:\n", idx)
 		for _, instr := range instrs {
-			str += fmt.Sprintf("  %v %v", instr.Op, instr.Result)
+			str += fmt.Sprintf("  i%d: %v = %v", instr.Id, instr.Result, instr.Op)
 			for _, arg := range instr.Args {
-				str += fmt.Sprintf(", %v", arg)
+				str += fmt.Sprintf(" %v", arg)
 			}
 			str += fmt.Sprintf("  # %v", instr.Comment)
 			str += "\n"
@@ -230,7 +230,7 @@ func (lir *LIR) thawPhi(val *ssa.Value) {
 		// Find the incoming value
 		r := lir.NewVReg(val.Args[i])
 		// Insert a move instruction at pred block
-		lir.NewInstrTo(val.Block.Preds[i].Id, LIR_Mov, res, r, res).comment(fmt.Sprintf("resolve %v", val.String()))
+		lir.NewInstrTo(val.Block.Preds[i].Id, LIR_Mov, res, r).comment(fmt.Sprintf("resolve %v", val.String()))
 	}
 	lir.Bind(val, res)
 }
@@ -270,7 +270,7 @@ func (lir *LIR) lowerArithmetic(val *ssa.Value) {
 		left := lir.NewVReg(val.Args[0])
 		right := lir.NewVReg(val.Args[1])
 		result := lir.NewVReg(val)
-		lir.NewInstr(LIR_Mov, result, left, result).comment(val)
+		lir.NewInstr(LIR_Mov, result, left).comment(val)
 		lir.NewInstr(lirOp, result, right, result).comment(val)
 		lir.Bind(val, result)
 	case ssa.OpLShift, ssa.OpRShift:
@@ -281,9 +281,9 @@ func (lir *LIR) lowerArithmetic(val *ssa.Value) {
 		result := lir.NewVReg(val)
 		reg := RCX.Cast(GetLIRType(val.Type))
 		// move left to result
-		lir.NewInstr(LIR_Mov, result, left, result).comment(val)
+		lir.NewInstr(LIR_Mov, result, left).comment(val)
 		// move right(shift count) to reg
-		lir.NewInstr(LIR_Mov, reg, right, reg).comment(val)
+		lir.NewInstr(LIR_Mov, reg, right).comment(val)
 		// CL is mandatory for rshift even if reg is ECX or RCX, etc
 		lirOp := LIR_LShift
 		if val.Op == ssa.OpRShift {
@@ -295,7 +295,7 @@ func (lir *LIR) lowerArithmetic(val *ssa.Value) {
 	case ssa.OpNot:
 		left := lir.NewVReg(val.Args[0])
 		result := lir.NewVReg(val)
-		lir.NewInstr(LIR_Mov, result, left, result).comment(val)
+		lir.NewInstr(LIR_Mov, result, left).comment(val)
 		lir.NewInstr(LIR_Not, result, result).comment(val)
 	case ssa.OpMul:
 		left := lir.NewVReg(val.Args[0])
@@ -306,9 +306,9 @@ func (lir *LIR) lowerArithmetic(val *ssa.Value) {
 		// from other instructions
 		freeRegs := CallerSaveRegs(GetLIRType(val.Type))
 		tempReg := freeRegs[0]
-		lir.NewInstr(LIR_Mov, tempReg, left, tempReg).comment(val)
+		lir.NewInstr(LIR_Mov, tempReg, left).comment(val)
 		lir.NewInstr(LIR_Mul, tempReg, right, tempReg).comment(val)
-		lir.NewInstr(LIR_Mov, result, tempReg, result).comment(val)
+		lir.NewInstr(LIR_Mov, result, tempReg).comment(val)
 		lir.Bind(val, result)
 	case ssa.OpDiv, ssa.OpMod:
 		// Divides the signed value in the RAX (dividend) by the source operand
@@ -319,7 +319,7 @@ func (lir *LIR) lowerArithmetic(val *ssa.Value) {
 
 		// Find the register that can hold the dividend or remainder
 		dividendReg := RAX.Cast(GetLIRType(val.Type))
-		lir.NewInstr(LIR_Mov, dividendReg, left, dividendReg).comment(val)
+		lir.NewInstr(LIR_Mov, dividendReg, left).comment(val)
 		lir.NewInstr(LIR_Div, right, right).comment(val)
 		// Store quotient/remainder in result
 		outputReg := dividendReg
@@ -327,12 +327,12 @@ func (lir *LIR) lowerArithmetic(val *ssa.Value) {
 			// Remainder is stored in RDX, while quotient is stored in RAX
 			outputReg = RDX.Cast(GetLIRType(val.Type))
 		}
-		lir.NewInstr(LIR_Mov, result, outputReg, result).comment(val)
+		lir.NewInstr(LIR_Mov, result, outputReg).comment(val)
 		lir.Bind(val, result)
 	case ssa.OpNegate:
 		left := lir.NewVReg(val.Args[0])
 		result := lir.NewVReg(val)
-		lir.NewInstr(LIR_Mov, result, left, result).comment(val)
+		lir.NewInstr(LIR_Mov, result, left).comment(val)
 		lir.NewInstr(LIR_Xor, result, lir.NewImm(1), result).comment(val)
 	default:
 		utils.Unimplement()
@@ -345,14 +345,14 @@ func (lir *LIR) lowerCall(val *ssa.Value) {
 	for i, arg := range val.Args {
 		r := lir.NewVReg(arg)
 		argReg := ArgReg(i, GetLIRType(arg.Type))
-		lir.NewInstr(LIR_Mov, argReg, r, argReg).comment(val)
+		lir.NewInstr(LIR_Mov, argReg, r).comment(val)
 	}
 	retReg := ReturnReg(GetLIRType(val.Type))
 	lir.NewInstr(LIR_Call, retReg, Symbol{val.Sym.(string)}).comment(val)
 	res := lir.NewVReg(val)
 	if retReg != NoReg {
 		// mov ret_val, res
-		lir.NewInstr(LIR_Mov, res, retReg, res).comment(val)
+		lir.NewInstr(LIR_Mov, res, retReg).comment(val)
 	}
 	lir.Bind(val, res)
 }
@@ -364,17 +364,17 @@ func (lir *LIR) lowerConst(val *ssa.Value) {
 	case t.IsInt():
 		r := Imm{LIRTypeDWord, val.Sym.(int)}
 		res := lir.NewVReg(val)
-		lir.NewInstr(LIR_Mov, res, r, res).comment(val)
+		lir.NewInstr(LIR_Mov, res, r).comment(val)
 		lir.Bind(val, res)
 	case t.IsShort():
 		r := Imm{LIRTypeWord, val.Sym.(int16)}
 		res := lir.NewVReg(val)
-		lir.NewInstr(LIR_Mov, res, r, res).comment(val)
+		lir.NewInstr(LIR_Mov, res, r).comment(val)
 		lir.Bind(val, res)
 	case t.IsLong():
 		r := Imm{LIRTypeQWord, val.Sym.(int64)}
 		res := lir.NewVReg(val)
-		lir.NewInstr(LIR_Mov, res, r, res).comment(val)
+		lir.NewInstr(LIR_Mov, res, r).comment(val)
 		lir.Bind(val, res)
 	case t.IsBool():
 		b := 0
@@ -383,12 +383,12 @@ func (lir *LIR) lowerConst(val *ssa.Value) {
 		}
 		r := Imm{LIRTypeDWord, b}
 		res := lir.NewVReg(val)
-		lir.NewInstr(LIR_Mov, res, r, res).comment(val)
+		lir.NewInstr(LIR_Mov, res, r).comment(val)
 		lir.Bind(val, res)
 	case t.IsChar():
 		r := Imm{LIRTypeByte, val.Sym.(int8)}
 		res := lir.NewVReg(val)
-		lir.NewInstr(LIR_Mov, res, r, res).comment(val)
+		lir.NewInstr(LIR_Mov, res, r).comment(val)
 		lir.Bind(val, res)
 	case t.IsFloat():
 		utils.Unimplement()
@@ -397,33 +397,33 @@ func (lir *LIR) lowerConst(val *ssa.Value) {
 		// Load double literal from rodata
 		addr := lir.NewAddr(LIRTypeVector16D, RIP, NoReg, text)
 		res := lir.NewVReg(val)
-		lir.NewInstr(LIR_Mov, res, addr, res).comment(val)
+		lir.NewInstr(LIR_Mov, res, addr).comment(val)
 		lir.Bind(val, res)
 	case t.IsString():
 		// arg0: ptr of string
 		str := val.Sym.(string)
 		ptrArg := ArgReg(0, LIRTypeDWord)
-		lir.NewInstr(LIR_Mov, ptrArg, lir.NewText(str, TextString), ptrArg).comment(val)
+		lir.NewInstr(LIR_Mov, ptrArg, lir.NewText(str, TextString)).comment(val)
 		// arg1: len of string
 		lenArg := ArgReg(1, LIRTypeDWord)
-		lir.NewInstr(LIR_Mov, lenArg, lir.NewImm(len(str)), lenArg).comment(val)
+		lir.NewInstr(LIR_Mov, lenArg, lir.NewImm(len(str))).comment(val)
 		// call runtime stub
 		retReg := ReturnReg(LIRTypeQWord)
 		lir.NewInstr(LIR_Call, retReg, Symbol{"runtime_new_string"}).comment(val)
 		// save result string
 		res := lir.NewVReg(val)
-		lir.NewInstr(LIR_Mov, res, retReg, res).comment(val)
+		lir.NewInstr(LIR_Mov, res, retReg).comment(val)
 		lir.Bind(val, res)
 	case t.IsArray():
 		// arg0: len of array
 		lenArg := ArgReg(0, LIRTypeDWord)
-		lir.NewInstr(LIR_Mov, lenArg, lir.NewImm(val.Sym.(int)), lenArg).comment(val)
+		lir.NewInstr(LIR_Mov, lenArg, lir.NewImm(val.Sym.(int))).comment(val)
 		// call runtime stub
 		// FIXME: Return type should be arch dependent
 		retReg := ReturnReg(LIRTypeQWord)
 		lir.NewInstr(LIR_Call, retReg, Symbol{"runtime_new_array"}).comment(val)
 		res := lir.NewVReg(val)
-		lir.NewInstr(LIR_Mov, res, retReg, res).comment(val)
+		lir.NewInstr(LIR_Mov, res, retReg).comment(val)
 		lir.Bind(val, res)
 	default:
 		utils.Unimplement()
@@ -444,7 +444,7 @@ func (lir *LIR) lowerIndexed(val *ssa.Value) {
 			index := lir.NewVReg(argIndex)
 			elem := lir.NewVReg(argValue)
 			addr := lir.NewAddr(elem.Type, base, index, lir.NewOffset(0))
-			lir.NewInstr(LIR_Mov, addr, elem, addr).comment(val)
+			lir.NewInstr(LIR_Mov, addr, elem).comment(val)
 		}
 	case ssa.OpLoadIndex:
 		if argVar.Type.IsString() {
@@ -454,19 +454,19 @@ func (lir *LIR) lowerIndexed(val *ssa.Value) {
 			dataAddr := lir.NewAddr(LIRTypeQWord, base, NoReg, lir.NewOffset(0))
 			freeRegs := CallerSaveRegs(LIRTypeQWord)
 			dataRes := freeRegs[0]
-			lir.NewInstr(LIR_Mov, dataRes, dataAddr, dataRes).comment("load string.data")
+			lir.NewInstr(LIR_Mov, dataRes, dataAddr).comment("load string.data")
 			// load element from dataAddr
 			result := lir.NewVReg(val)
 			index := lir.NewVReg(argIndex)
 			charAddr := lir.NewAddr(LIRTypeByte, dataRes, index, lir.NewOffset(0))
-			lir.NewInstr(LIR_Mov, result, charAddr, result).comment("load str.data[index]")
+			lir.NewInstr(LIR_Mov, result, charAddr).comment("load str.data[index]")
 		} else {
 			// load element from array
 			base := lir.NewVReg(argVar)
 			index := lir.NewVReg(argIndex)
 			addr := lir.NewAddr(GetLIRType(val.Type), base, index, lir.NewOffset(0))
 			result := lir.NewVReg(val)
-			lir.NewInstr(LIR_Mov, result, addr, result).comment(val)
+			lir.NewInstr(LIR_Mov, result, addr).comment(val)
 		}
 	default:
 		utils.ShouldNotReachHere()
@@ -490,8 +490,7 @@ func (lir *LIR) lowerValue(val *ssa.Value) {
 	case ssa.OpParam:
 		iarg := val.Sym.(int)
 		result := lir.NewVReg(val)
-		lir.NewInstr(LIR_Mov,
-			result, ArgReg(iarg, GetLIRType(val.Type)), result).comment(val)
+		lir.NewInstr(LIR_Mov, result, ArgReg(iarg, GetLIRType(val.Type))).comment(val)
 		lir.Bind(val, result)
 	case ssa.OpCall:
 		lir.lowerCall(val)
@@ -538,7 +537,7 @@ func (lir *LIR) lowerBlockControl(block *ssa.Block) {
 			// Return with value
 			left := lir.NewVReg(ctrl)
 			retReg := ReturnReg(GetLIRType(ctrl.Type))
-			lir.NewInstr(LIR_Mov, retReg, left, retReg).comment(ctrl)
+			lir.NewInstr(LIR_Mov, retReg, left).comment(ctrl)
 			lir.Bind(ctrl, left)
 		}
 		// Pure return
@@ -600,7 +599,10 @@ func Lower(fn *ssa.Func) *LIR {
 
 	VerifyLIR(lir)
 	if EnableRegAlloc {
-		lsra(lir)
+		if fn.Name == "testregalloc" {
+			fmt.Printf("LOWERED\n%v", lir)
+			lsra(lir)
+		}
 	}
 	return lir
 }
