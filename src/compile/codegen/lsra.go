@@ -18,6 +18,7 @@ package codegen
 import (
 	"falcon/utils"
 	"fmt"
+	"math"
 	"os"
 	"sort"
 )
@@ -186,6 +187,17 @@ func (i *Interval) addUsePoint(id int, kind UseKind) {
 		id:   id,
 		kind: kind,
 	})
+}
+
+func (i *Interval) intersect(k *Interval) int {
+	for _, r1 := range i.ranges {
+		for _, r2 := range k.ranges {
+			if r1.from <= r2.to && r1.to >= r2.from {
+				return min(r1.to, r2.to)
+			}
+		}
+	}
+	return -1
 }
 
 // func (i *Interval) intersectionPositionWith(o *Interval) int {
@@ -792,18 +804,26 @@ func (ra *LSRA) allocateRegisters() {
 }
 
 func (ra *LSRA) tryAllocatePhyReg() bool {
-	freeRegs := CallerSaveRegs(LIRTypeQWord)
+	freeRegPos := make([]int, len(CallerSaveRegs(LIRTypeQWord)))
+
+	interval2pos := make(map[*Interval]int, 0)
+	for i, _ := range freeRegPos {
+		freeRegPos[i] = math.MaxInt
+	}
 
 	// Remove the registers that are already assigned to active intervals
 	for _, i := range ra.actives {
-		for k := len(freeRegs) - 1; k >= 0; k-- {
-			if i.phyRegIndex == freeRegs[k].Index {
-				freeRegs = append(freeRegs[:k], freeRegs[k+1:]...)
-				break
-			}
+		interval2pos[i] = 0
+	}
+	// Inactive set is guaranteed to not cover start position of current interval
+	// but MAY cover end position of current interval
+	for _, i := range ra.inactive {
+		if k := i.intersect(ra.current); k != -1 {
+			// Bad case, inactive interval is intersecting with current interval
+			// at position k
+			interval2pos[i] = k // register is available before k
 		}
 	}
-
 	// for _, i := range ra.inactive {
 	// 	if ra.current.isIntersectingWith(interval) {
 	// 		free[interval.phyRegIndex] = min(ra.current.intersectionPositionWith(interval), free[interval.phyRegIndex])
