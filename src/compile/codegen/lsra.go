@@ -796,64 +796,76 @@ func (ra *LSRA) allocateRegisters() {
 		if !ra.tryAllocatePhyReg() {
 			// ra.allocatePhyReg()
 		}
-
-		// if ra.current.phyRegAssigned() {
-		// 	actives.Add(ra.current)
-		// }
+		if ra.current.phyRegIndex != -1 {
+			actives = append(actives, ra.current)
+		}
+		ra.actives = actives
+		ra.inactive = inactives
+		ra.handled = handled
 	}
 }
 
 func (ra *LSRA) tryAllocatePhyReg() bool {
-	freeRegPos := make([]int, len(CallerSaveRegs(LIRTypeQWord)))
-
-	interval2pos := make(map[*Interval]int, 0)
-	for i, _ := range freeRegPos {
-		freeRegPos[i] = math.MaxInt
+	freeRegPos := make(map[int]int)
+	setFreePos := func(reg int, pos int) {
+		if _, exist := freeRegPos[reg]; exist {
+			freeRegPos[reg] = 0
+		} else {
+			utils.Assert(false, "why not otherwise")
+		}
+	}
+	// All registers are entirely free
+	for _, reg := range CallerSaveRegs(LIRTypeQWord) {
+		freeRegPos[reg.Index] = math.MaxInt
 	}
 
 	// Remove the registers that are already assigned to active intervals
 	for _, i := range ra.actives {
-		interval2pos[i] = 0
+		setFreePos(i.phyRegIndex, 0)
 	}
 	// Inactive set is guaranteed to not cover start position of current interval
 	// but MAY cover end position of current interval
 	for _, i := range ra.inactive {
 		if k := i.intersect(ra.current); k != -1 {
 			// Bad case, inactive interval is intersecting with current interval
-			// at position k
-			interval2pos[i] = k // register is available before k
+			// at position k, it frees until k
+			setFreePos(i.phyRegIndex, k)
 		}
 	}
-	// for _, i := range ra.inactive {
-	// 	if ra.current.isIntersectingWith(interval) {
-	// 		free[interval.phyRegIndex] = min(ra.current.intersectionPositionWith(interval), free[interval.phyRegIndex])
-	// 	}
-	// }
 
-	// ra.inactive.ForEach(func(interval *Interval) {
-	// 	if ra.current.isIntersectingWith(interval) {
-	// 		free[interval.phyRegIndex] = min(ra.current.intersectionPositionWith(interval), free[interval.phyRegIndex])
-	// 	}
-	// })
+	// Pick up highest position from freeRegPos
+	keys := make([]int, 0)
+	for k := range freeRegPos {
+		keys = append(keys, k)
+	}
+	sort.SliceStable(keys, func(i, j int) bool {
+		return keys[i] <= keys[j]
+	})
+	index := -1
+	pos := 0
+	for _, k := range keys {
+		if freeRegPos[k] > pos {
+			index = k
+			pos = freeRegPos[k]
+		}
+	}
 
-	// index := 0
-	// pos := free[0]
-	// for i := 1; i < len(free); i++ {
-	// 	if free[i] > pos {
-	// 		index = i
-	// 		pos = free[i]
-	// 	}
-	// }
-
-	// if pos == 0 {
-	// 	return false
-	// }
-
-	// ra.current.assignPhyReg(index)
-	// if pos <= ra.current.lastRange().to {
-	// 	// TODO: should select the optimal position
-	// 	ra.insertToWorkList(ra.current.splitAt(pos))
-	// }
+	fmt.Printf("freePos: %s, interval %v\n", FindRegisterByIndex(index), ra.current)
+	if freeRegPos[index] == -1 {
+		// No free register
+		return false
+	} else if freeRegPos[index] > ra.current.lastRange().to {
+		// The register is entire free across the current interval
+		utils.Assert(ra.current.phyRegIndex == -1, "already assigned")
+		ra.current.phyRegIndex = index
+	} else {
+		// The register is free until pos, we need to split the current interval
+		// and spill the rest
+		// ra.spillInterval(ra.current)
+		// ra.current.splitAt(pos)
+		// ra.insertToWorkList(ra.current)
+		fmt.Printf("TODO:SPILL\n")
+	}
 	return true
 }
 
@@ -1003,11 +1015,18 @@ func (ra *LSRA) printIntervals() {
 	for k, i := range ra.reg2Interval {
 		var reg string
 		if k >= 0 {
-			reg = fmt.Sprintf("v%d", k)
+			reg = fmt.Sprintf("i%d", k)
 		} else {
 			reg = fmt.Sprintf("%s", FindRegisterByIndex(k).String())
 		}
 		fmt.Printf("%s: %v\n", reg, i)
+	}
+}
+
+func (ra *LSRA) printRegAllocation() {
+	fmt.Printf("==RegAllocation==\n")
+	for _, i := range ra.reg2Interval {
+		fmt.Printf("interval:%d reg:%s\n", i.index, FindRegisterByIndex(i.phyRegIndex).String())
 	}
 }
 
@@ -1026,6 +1045,7 @@ func (ra *LSRA) allocate() {
 	// as a test case.
 	ra.printIntervals()
 	ra.allocateRegisters()
+	ra.printRegAllocation()
 	// ra.insertMoves()
 	// ra.resolveDataFlow()
 }
