@@ -154,12 +154,8 @@ func (asm *Assembler) allocateStackSlot(v Register) string {
 func (asm *Assembler) operand(operand IOperand) string {
 	switch v := operand.(type) {
 	case Register:
-		if !v.Virtual {
-			// Physical register is perfect to become an operand
-			return fmt.Sprintf("%%%s", v.String())
-		}
-		// Allocate stack slot for virtual register
-		return asm.allocateStackSlot(v)
+		utils.Assert(!v.Virtual, "Must be physical")
+		return fmt.Sprintf("%%%s", v.String())
 	case Imm:
 		// Immediate is a constant and can be used as operand directly
 		return fmt.Sprintf("$%d", v.Value)
@@ -219,29 +215,6 @@ func (asm *Assembler) operand(operand IOperand) string {
 	return "<unknown>"
 }
 
-// loadToScratchReg loads typed operand to scratch register
-func (asm *Assembler) loadToScratchReg(src IOperand) IOperand {
-	switch src.(type) {
-	case Register, Addr:
-		if s, ok := src.(Register); ok && !s.Virtual {
-			return s
-		}
-		// Virtual register or memory address, candidate for load
-		srcType := src.GetType()
-		// Pick the scratch register
-		scratch0 := asm.GetScratchReg(srcType)
-		source := asm.operand(src)
-		// Move src to scratch register
-		asm.buf += fmt.Sprintf("  mov%s %s, %s\n",
-			asm.suffix(srcType), source, asm.operand(scratch0))
-		// Return scratch register
-		return scratch0
-	default:
-		// Immediate or symbol etc, no need to load
-		return src
-	}
-}
-
 // loadToReg loads typed operand to physical register
 func (asm *Assembler) loadToReg(src IOperand, reg Register) Register {
 	utils.Assert(!reg.Virtual, "reg is not a physical register")
@@ -272,18 +245,6 @@ func (asm *Assembler) emit1(mnemonic string, dst IOperand) {
 // emit2 emits an instruction with two operands
 func (asm *Assembler) emit2(mnemonic string, src IOperand, dst IOperand) {
 	dstType := dst.GetType()
-	// Try to load source to scratch register if possible
-	srcReg := asm.loadToScratchReg(src)
-	if srcReg, isReg := srcReg.(Register); isReg {
-		asm.buf += fmt.Sprintf("  %s%s %s, %s\n",
-			mnemonic,
-			asm.suffix(dstType),
-			asm.operand(srcReg),
-			asm.operand(dst),
-		)
-		return
-	}
-	// Fair enough, generate asm directly
 	asm.buf += fmt.Sprintf("  %s%s %s, %s\n",
 		mnemonic,
 		asm.suffix(dstType),
@@ -486,28 +447,28 @@ func (asm *Assembler) mul(src IOperand, dst IOperand) {
 // Quotient stored in %rax
 // Remainder stored in %rdx
 func (asm *Assembler) div(src IOperand) {
-	source := asm.loadToScratchReg(src)
-	// The Intel-syntax conversion instructions
-	// cbw — sign-extend byte in %al to word in %ax,
-	// cwde — sign-extend word in %ax to long in %eax,
-	// cwd — sign-extend word in %ax to long in %dx:%ax,
-	// cdq — sign-extend dword in %eax to quad in %edx:%eax,
-	// cdqe — sign-extend dword in %eax to quad in %rax (x86-64 only),
-	// cqo — sign-extend quad in %rax to octuple in %rdx:%rax (x86-64 only),
-	// are called cbtw, cwtl, cwtd, cltd, cltq, and cqto in AT&T naming. as
-	// accepts either naming for these instructions.
-	sourceType := src.GetType()
-	switch sourceType {
-	case LIRTypeWord:
-		asm.emit0("cwtd")
-	case LIRTypeDWord:
-		asm.emit0("cltd")
-	case LIRTypeQWord:
-		asm.emit0("cqto")
-	default:
-		utils.Unimplement()
-	}
-	asm.emit1("idiv", source)
+	// source := asm.loadToScratchReg(src)
+	// // The Intel-syntax conversion instructions
+	// // cbw — sign-extend byte in %al to word in %ax,
+	// // cwde — sign-extend word in %ax to long in %eax,
+	// // cwd — sign-extend word in %ax to long in %dx:%ax,
+	// // cdq — sign-extend dword in %eax to quad in %edx:%eax,
+	// // cdqe — sign-extend dword in %eax to quad in %rax (x86-64 only),
+	// // cqo — sign-extend quad in %rax to octuple in %rdx:%rax (x86-64 only),
+	// // are called cbtw, cwtl, cwtd, cltd, cltq, and cqto in AT&T naming. as
+	// // accepts either naming for these instructions.
+	// sourceType := src.GetType()
+	// switch sourceType {
+	// case LIRTypeWord:
+	// 	asm.emit0("cwtd")
+	// case LIRTypeDWord:
+	// 	asm.emit0("cltd")
+	// case LIRTypeQWord:
+	// 	asm.emit0("cqto")
+	// default:
+	// 	utils.Unimplement()
+	// }
+	// asm.emit1("idiv", source)
 }
 
 func (asm *Assembler) call(res IOperand, target IOperand) {

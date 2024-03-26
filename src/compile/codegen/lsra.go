@@ -19,7 +19,6 @@ import (
 	"falcon/utils"
 	"fmt"
 	"math"
-	"os"
 	"sort"
 )
 
@@ -38,9 +37,7 @@ type LSRA struct {
 	genKillMap   map[int]*GenKill
 	liveInOutMap map[int]*LiveInOut
 
-	reg2Interval map[int]*Interval // register index to interval
-
-	// nonFixedIntervals []*Interval
+	vreg2Interval map[int]*Interval // register index to interval
 
 	workList []*Interval
 	current  *Interval
@@ -50,7 +47,7 @@ type LSRA struct {
 	handled  []*Interval
 
 	spilled       bool
-	nextStackSlot int // TODO: should we consider width?
+	nextStackSlot int
 }
 
 // Interval represents a live interval, it contains a list of ranges and a list
@@ -65,16 +62,30 @@ type Interval struct {
 
 	phyRegIndex int
 	fixed       bool
+	sub         []*Interval
+	parent      *Interval
 }
 
 func (i *Interval) String() string {
 	str := "@"
+	if i.fixed {
+		str += "+"
+	}
 	for _, r := range i.ranges {
 		str += fmt.Sprintf("[i%d,i%d)", r.from, r.to)
 	}
 	str += " @"
 	for _, u := range i.uses {
 		str += fmt.Sprintf("i%d ", u.id)
+	}
+	if len(i.sub) > 0 {
+		str += " sub:"
+		for _, s := range i.sub {
+			str += fmt.Sprintf("i%d ", s.index)
+		}
+	}
+	if i.parent != nil {
+		str += fmt.Sprintf(" parent:i%d", i.parent.index)
 	}
 	return str
 }
@@ -105,15 +116,9 @@ func newInterval(vri int) *Interval {
 	return &Interval{
 		index:       vri,
 		phyRegIndex: -1,
-		// stackSlotIndex: -1,
-	}
-}
-
-func newFixedInterval(pri int) *Interval {
-	return &Interval{
-		index:       -1,
-		phyRegIndex: pri,
-		fixed:       true,
+		fixed:       false,
+		sub:         make([]*Interval, 0),
+		parent:      nil,
 	}
 }
 
@@ -171,17 +176,6 @@ func (i *Interval) addRange(from, to int) {
 	})
 }
 
-// func (i *Interval) updateFromForFistRange(from int) {
-// 	if i._range == nil {
-// 		i._range = &Range{
-// 			from: from,
-// 			to:   from,
-// 		}
-// 	} else {
-// 		i._range.from = from
-// 	}
-// }
-
 func (i *Interval) addUsePoint(id int, kind UseKind) {
 	i.uses = append(i.uses, &UsePoint{
 		id:   id,
@@ -200,25 +194,26 @@ func (i *Interval) intersect(k *Interval) int {
 	return -1
 }
 
-// func (i *Interval) intersectionPositionWith(o *Interval) int {
-// 	i1 := i._range
-// 	i2 := o._range
-
-// 	for i1 != nil && i2 != nil {
-// 		if i2.from > i1.to {
-// 			i1 = i1.next
-// 		} else if i2.to < i1.from {
-// 			i2 = i2.next
-// 		} else {
-// 			return min(i1.from, i2.from)
-// 		}
-// 	}
-// 	return math.MaxInt
-// }
-
-// func (i *Interval) isIntersectingWith(o *Interval) bool {
-// 	return i.intersectionPositionWith(o) != math.MaxInt
-// }
+func (i *Interval) splitAt(pos int) *Interval {
+	// split interval at given position into two sub intervals
+	// the first sub interval is [from, pos], the second sub interval is [pos+1, to]
+	// the second sub interval is returned
+	for _, r := range i.ranges {
+		if r.from <= pos && r.to >= pos {
+			// pos is coverred by the interval, split it!
+			ni := newInterval(i.index)
+			ni.ranges = append(ni.ranges, &Range{
+				from: pos + 1,
+				to:   r.to,
+			})
+			r.to = pos
+			i.sub = append(i.sub, ni)
+			ni.parent = i
+			return ni
+		}
+	}
+	return nil
+}
 
 // func (i *Interval) splitAt(pos int) *Interval {
 // 	// TODO: assert i.cover(pos) is true
@@ -294,14 +289,6 @@ func (i *Interval) intersect(k *Interval) int {
 // 	}
 // 	// TODO: should not reach here
 // 	return nil
-// }
-
-// func (i *Interval) phyRegAssigned() bool {
-// 	return i.phyRegIndex != -1
-// }
-
-// func (i *Interval) assignPhyReg(index int) {
-// 	i.phyRegIndex = index
 // }
 
 // func (i *Interval) stackSlotIndexAssigned() bool {
@@ -569,25 +556,14 @@ func (ra *LSRA) allocateStackSlot() int {
 }
 
 // used when building intervals
-func (ra *LSRA) getOrCreateInterval(i int, virtual bool) *Interval {
-	if interval, ok := ra.reg2Interval[i]; interval != nil && ok {
+func (ra *LSRA) getOrCreateInterval(i int) *Interval {
+	if interval, ok := ra.vreg2Interval[i]; interval != nil && ok {
 		return interval
 	}
 	interval := newInterval(i)
-	ra.reg2Interval[i] = interval
+	ra.vreg2Interval[i] = interval
 	return interval
 }
-
-// func (ra *LSRA) insertToWorkList(interval *Interval) {
-// 	pos := &ra.workList
-
-// 	for *pos != nil && (*pos).fistRange().from <= interval.fistRange().from {
-// 		pos = &(*pos).next
-// 	}
-
-// 	interval.next = *pos
-// 	*pos = interval
-// }
 
 func (ra *LSRA) initOrder() {
 	// TODO: A more appropriate order should be used.
@@ -673,7 +649,7 @@ func (ra *LSRA) computeLiveInOutMap(nofVR int) {
 }
 
 func (ra *LSRA) buildIntervals() {
-	ra.reg2Interval = make(map[int]*Interval)
+	ra.vreg2Interval = make(map[int]*Interval)
 
 	for i := len(ra.blocks) - 1; i >= 0; i-- {
 		b := ra.blocks[i]
@@ -684,7 +660,7 @@ func (ra *LSRA) buildIntervals() {
 		for i := 0; i < out.Size(); i++ {
 			if out.IsSet(i) {
 				is := ra.lir.Instructions[b]
-				i := ra.getOrCreateInterval(i, true)
+				i := ra.getOrCreateInterval(i)
 				i.addRange(is[0].Id, is[len(is)-1].Id)
 			}
 		}
@@ -693,17 +669,19 @@ func (ra *LSRA) buildIntervals() {
 		for i := len(is) - 1; i >= 0; i-- {
 			instruction := is[i]
 
-			// if instruction.Op == LIR_Call {
-			// 	cs := callerSaved()
-			// 	for _, i := range cs {
-			// 		ra.pri2Interval[i].addRange(instruction.Id, instruction.Id)
-			// 	}
-			// }
+			if instruction.Op == LIR_Call {
+				regs := CallerSaveRegs(LIRTypeDWord)
+				for _, i := range regs {
+					i := ra.getOrCreateInterval(i.Index)
+					i.fixed = true
+					i.addRange(instruction.Id, instruction.Id)
+				}
+			}
 
 			output := instruction.Result
 			// Def point there, we need to update start position of the interval
-			if r, ok := output.(Register); ok {
-				interval := ra.getOrCreateInterval(r.Index, r.Virtual)
+			if r, ok := output.(Register); ok && output != NoReg {
+				interval := ra.getOrCreateInterval(r.Index)
 				if interval.NumRanges() > 0 {
 					interval.firstRange().from = instruction.Id
 				}
@@ -713,9 +691,9 @@ func (ra *LSRA) buildIntervals() {
 			// def is unknown, conservativly assume it starts at the beginning of
 			// the block
 			for _, input := range instruction.Args {
-				if r, ok := input.(Register); ok {
+				if r, ok := input.(Register); ok && input != NoReg {
 					blockFrom := is[0].Id
-					interval := ra.getOrCreateInterval(r.Index, r.Virtual)
+					interval := ra.getOrCreateInterval(r.Index)
 					interval.addRange(blockFrom, instruction.Id)
 					interval.addUsePoint(instruction.Id, UKRead)
 				}
@@ -733,7 +711,7 @@ func sortWorklist(intervals []*Interval) {
 }
 
 func (ra *LSRA) allocateRegisters() {
-	for _, i := range ra.reg2Interval {
+	for _, i := range ra.vreg2Interval {
 		if i.ranges == nil {
 			continue
 		}
@@ -815,7 +793,7 @@ func (ra *LSRA) tryAllocatePhyReg() bool {
 		}
 	}
 	// All registers are entirely free
-	for _, reg := range CallerSaveRegs(LIRTypeQWord) {
+	for _, reg := range CallerSaveRegs(LIRTypeDWord) {
 		freeRegPos[reg.Index] = math.MaxInt
 	}
 
@@ -859,12 +837,17 @@ func (ra *LSRA) tryAllocatePhyReg() bool {
 		utils.Assert(ra.current.phyRegIndex == -1, "already assigned")
 		ra.current.phyRegIndex = index
 	} else {
-		// The register is free until pos, we need to split the current interval
-		// and spill the rest
-		// ra.spillInterval(ra.current)
-		// ra.current.splitAt(pos)
-		// ra.insertToWorkList(ra.current)
-		fmt.Printf("TODO:SPILL\n")
+		if !ra.current.cover(freeRegPos[index]) {
+			fmt.Printf("xxfreePos: %s, interval %v\n", FindRegisterByIndex(index), ra.current)
+		}
+		utils.Assert(ra.current.cover(freeRegPos[index]), "should intersect")
+		// The free register is not entirely free across the current interval
+		// split current interval into two sub intervals, so that free register
+		// can be used for the first sub interval, and second sub interval is
+		// added to worklist for further processing.
+		remaining := ra.current.splitAt(freeRegPos[index])
+		utils.Assert(remaining != nil, "split interval failed")
+		ra.workList = append(ra.workList, remaining)
 	}
 	return true
 }
@@ -874,23 +857,6 @@ func (ra *LSRA) tryAllocatePhyReg() bool {
 // 		interval.assignStackSlot(ra.allocateStackSlot())
 // 	}
 // 	interval.spilled = true
-// }
-
-// func (ra *LSRA) forEachActiveAndInactiveInterval(f func(interval *Interval)) {
-// 	ra.actives.ForEach(func(interval *Interval) {
-// 		f(interval)
-// 	})
-
-// 	ra.inactive.ForEach(func(interval *Interval) {
-// 		f(interval)
-// 	})
-// }
-
-// func min(a, b int) int {
-// 	if a < b {
-// 		return a
-// 	}
-// 	return b
 // }
 
 // func (ra *LSRA) allocatePhyReg() {
@@ -1012,22 +978,96 @@ func (ra *LSRA) printLiveInOut() {
 
 func (ra *LSRA) printIntervals() {
 	fmt.Printf("==Interval==\n")
-	for k, i := range ra.reg2Interval {
+	maxWidth := 0
+	for _, i := range ra.vreg2Interval {
+		last := i.lastRange().to
+		if last > maxWidth {
+			maxWidth = last
+		}
+	}
+	for i := 0; i <= maxWidth; i++ {
+		fmt.Printf("%d ", i)
+	}
+	fmt.Printf("\n")
+	for k, i := range ra.vreg2Interval {
+		from := i.firstRange().from
+		to := i.lastRange().to
 		var reg string
 		if k >= 0 {
-			reg = fmt.Sprintf("i%d", k)
+			reg = fmt.Sprintf("v%d", k)
 		} else {
-			reg = fmt.Sprintf("%s", FindRegisterByIndex(k).String())
+			reg = fmt.Sprintf("%s", FindRegisterByIndex(k))
 		}
-		fmt.Printf("%s: %v\n", reg, i)
+		s := 0
+		fmt.Printf("|")
+
+		for s < from {
+			fmt.Printf("%s", "  ")
+			s++
+		}
+		if from != 0 {
+			fmt.Printf("|")
+		} else {
+			fmt.Printf("-")
+		}
+		for s <= to {
+			fmt.Printf("%s", "--")
+			s++
+		}
+		if to != maxWidth {
+			fmt.Printf("|")
+		} else {
+			fmt.Printf("-")
+		}
+		for s <= maxWidth {
+			fmt.Printf("%s", "  ")
+			s++
+		}
+
+		fmt.Printf("| ")
+		fmt.Printf("%s %v\n", reg, i)
+
 	}
 }
 
 func (ra *LSRA) printRegAllocation() {
-	fmt.Printf("==RegAllocation==\n")
-	for _, i := range ra.reg2Interval {
-		fmt.Printf("interval:%d reg:%s\n", i.index, FindRegisterByIndex(i.phyRegIndex).String())
+	fmt.Printf("==Assign==\n")
+	for _, i := range ra.vreg2Interval {
+		var regName string
+		if i.index >= 0 {
+			regName = fmt.Sprintf("v%d", i.index)
+		} else {
+			regName = FindRegisterByIndex(i.index).String()
+		}
+		fmt.Printf("interval:%s reg:%s\n", regName, FindRegisterByIndex(i.phyRegIndex).String())
 	}
+}
+
+func (ra *LSRA) materialize() {
+	// Replace virtual register with allocated physical register
+	for _, block := range ra.blocks {
+		is := ra.lir.Instructions[block]
+		for _, instr := range is {
+			for iarg, a := range instr.Args {
+				if r, ok := a.(Register); ok {
+					if r.Virtual {
+						interval := ra.vreg2Interval[r.Index]
+						instr.Args[iarg] = FindRegisterByIndex(interval.phyRegIndex)
+					}
+				}
+			}
+			if r, ok := instr.Result.(Register); ok {
+				if r.Virtual {
+					interval := ra.vreg2Interval[r.Index]
+					instr.Result = FindRegisterByIndex(interval.phyRegIndex)
+				}
+			}
+		}
+	}
+}
+
+func (ra *LSRA) dumpInterval() {
+
 }
 
 func (ra *LSRA) allocate() {
@@ -1041,13 +1081,12 @@ func (ra *LSRA) allocate() {
 	ra.printLiveInOut()
 	ra.buildIntervals()
 
-	// TODO: Maybe we can step by step to let LSRA work, please run try.sh
-	// as a test case.
 	ra.printIntervals()
 	ra.allocateRegisters()
 	ra.printRegAllocation()
 	// ra.insertMoves()
 	// ra.resolveDataFlow()
+	ra.materialize()
 }
 
 // The entry
@@ -1056,6 +1095,5 @@ func lsra(lir *LIR) {
 		lir: lir,
 	}
 	ra.allocate()
-	os.Exit(1)
 	// TODO: Verify all virtual register are assigned
 }

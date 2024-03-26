@@ -167,8 +167,8 @@ func CompileTheWorld(wd string, source string) string {
 	ast.InferTypes(true /*debug*/, root1, root2)
 	ast.TypeCheck(true /*debug*/, root1, root2)
 
-	compileY(tempDir, stdLib, false /*debug*/, root1)
 	compileY(tempDir, userCode, true /*debug*/, root2)
+	compileY(tempDir, stdLib, false /*debug*/, root1)
 	// Compile the runtime written by C
 	compileC(tempDir, filepath.Join(tempDir, "builtin.c"))
 	compileC(tempDir, filepath.Join(tempDir, "runtime.c"))
