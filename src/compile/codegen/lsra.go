@@ -413,9 +413,7 @@ func (ra *LSRA) allocateRegisters() {
 
 	for len(ra.workList) > 0 {
 		// Pick up lowest start position interval and process it
-		sort.SliceStable(ra.workList, func(i, j int) bool {
-			return ra.workList[i].firstRange().from <= ra.workList[j].firstRange().from
-		})
+		sortWorklist(ra.workList)
 		ra.current = ra.workList[0]
 		ra.workList = ra.workList[1:]
 		pos := ra.current.firstRange().from
@@ -551,55 +549,10 @@ func (ra *LSRA) printLiveInOut() {
 
 func (ra *LSRA) printIntervals() {
 	fmt.Printf("==Interval==\n")
-	maxWidth := 0
-	for _, i := range ra.vreg2Interval {
-		last := i.lastRange().to
-		if last > maxWidth {
-			maxWidth = last
+	for i, interval := range ra.vreg2Interval {
+		for _, r := range interval.ranges {
+			fmt.Printf("i%d [%d, %d)\n", i, r.from, r.to)
 		}
-	}
-	for i := 0; i <= maxWidth; i++ {
-		fmt.Printf("%d ", i)
-	}
-	fmt.Printf("\n")
-	for k, i := range ra.vreg2Interval {
-		from := i.firstRange().from
-		to := i.lastRange().to
-		var reg string
-		if k >= 0 {
-			reg = fmt.Sprintf("v%d", k)
-		} else {
-			reg = fmt.Sprintf("%s", FindRegisterByIndex(k))
-		}
-		s := 0
-		fmt.Printf("|")
-
-		for s < from {
-			fmt.Printf("%s", "  ")
-			s++
-		}
-		if from != 0 {
-			fmt.Printf("|")
-		} else {
-			fmt.Printf("-")
-		}
-		for s <= to {
-			fmt.Printf("%s", "--")
-			s++
-		}
-		if to != maxWidth {
-			fmt.Printf("|")
-		} else {
-			fmt.Printf("-")
-		}
-		for s <= maxWidth {
-			fmt.Printf("%s", "  ")
-			s++
-		}
-
-		fmt.Printf("| ")
-		fmt.Printf("%s %v\n", reg, i)
-
 	}
 }
 
