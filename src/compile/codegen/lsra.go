@@ -138,7 +138,6 @@ func (i *Interval) cover(pos int) bool {
 		if r.from <= pos && r.to >= pos {
 			return true
 		}
-		r = r.next
 	}
 	return false
 }
@@ -451,7 +450,6 @@ func (ra *LSRA) allocateRegisters() {
 		}
 
 		// Try to allocate physical register for current interval
-
 		if !ra.tryAllocatePhyReg() {
 			// ra.allocatePhyReg()
 		}
@@ -510,7 +508,7 @@ func (ra *LSRA) tryAllocatePhyReg() bool {
 	}
 
 	fmt.Printf("freePos: %s, interval %v\n", FindRegisterByIndex(index), ra.current)
-	if freeRegPos[index] == -1 {
+	if freeRegPos[index] == 0 {
 		// No free register
 		return false
 	} else if freeRegPos[index] > ra.current.lastRange().to {
